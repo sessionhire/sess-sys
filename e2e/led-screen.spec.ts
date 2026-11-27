@@ -302,6 +302,24 @@ test('on a phone the builder is the whole screen, keeps what was typed when shut
   await expect(form.getByRole('button', { name: 'Add to quote' })).toBeInViewport()
   if (shots) await shot(page, 'builder-phone-kit')
 
+  // On the narrowest phone nothing runs off the side: the sheet doesn't scroll sideways, no part of it is wider than the screen,
+  // and Add to quote is still in reach.
+  await page.setViewportSize({ width: 320, height: 640 })
+  await expect.poll(async () => Math.round((await sheet.boundingBox())!.width)).toBe(320)
+  const wide = () =>
+    sheet.evaluate((d) => ({
+      sideways: d.scrollWidth - d.clientWidth,
+      past: [...d.querySelectorAll<HTMLElement>('*')].filter((el) => el.getClientRects().length > 0 && el.getBoundingClientRect().right > innerWidth + 1).map((el) => el.className || el.tagName),
+    }))
+  expect(await wide()).toEqual({ sideways: 0, past: [] })
+  await sheet.evaluate((d) => d.scrollTo(0, 0))
+  expect(await wide()).toEqual({ sideways: 0, past: [] })
+  await expect(form.getByRole('button', { name: 'Add to quote' })).toBeInViewport()
+  if (shots) await shot(page, 'builder-phone-320')
+  await takes.scrollIntoViewIfNeeded()
+  if (shots) await shot(page, 'builder-phone-320-kit')
+  await page.setViewportSize({ width: 390, height: 844 })
+
   await form.getByRole('button', { name: 'Add to quote' }).click()
   await expect(sheet).toHaveCount(0)
   await expect(page.getByRole('region', { name: 'Notifications' })).toContainText('Added 2 × LED screen 4 × 2.5 m, ground stacked')
@@ -310,6 +328,13 @@ test('on a phone the builder is the whole screen, keeps what was typed when shut
   await expect(head).toContainText('Each 8 panels wide by 5 high · 1,024 × 640 pixels')
   await expect(page.locator('.conn')).toHaveText('Up to date')
   if (shots) await shot(page, 'on-the-quote-phone')
+  // Its line fits the narrowest phone too, its name and what it comes to both whole.
+  await page.setViewportSize({ width: 320, height: 640 })
+  await head.scrollIntoViewIfNeeded()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0)
+  expect(await head.evaluate((el) => [...el.querySelectorAll<HTMLElement>('*')].filter((x) => x.scrollWidth > x.clientWidth + 1 || x.getBoundingClientRect().right > innerWidth + 1).map((x) => x.className))).toEqual([])
+  if (shots) await shot(page, 'on-the-quote-phone-320')
+  await page.setViewportSize({ width: 390, height: 844 })
   // Added, there's nothing left over to open on next time.
   await draft.getByRole('button', { name: 'More to add…' }).click()
   await draft.getByRole('button', { name: 'Add LED screen' }).click()
