@@ -17,6 +17,7 @@ waiting on someone.
   size, and both price-check files read in full (22 of 22; 190 rows).
 - Waiting on Colly: choose high-confidence-22-to-update.csv on live and press
   Set. Once all products are on the list, run the price sweep again.
+
 ## 27 November 2026: cancelling a job says what it does first
 
 **Done (1.242.1, #461, ADR 0205)**
