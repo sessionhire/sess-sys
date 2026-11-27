@@ -172,21 +172,29 @@ const PROCESSORS: readonly { is: RegExp; pixels: number; ports: number }[] = [
   { is: /\bnova.*\bpro ?hd/i, pixels: 2_300_000, ports: 4 },
 ]
 
+/**
+ * A name as the two readers below take it: in lower case, with each run of spaces as one. Their patterns then ask for
+ * one space at most and a number no longer than a real one, so none of them can be slow on a long name, whatever is
+ * typed into it: a pattern that takes any run of digits or spaces goes over the same run again from each place in it.
+ */
+const plainName = (name: string) => name.toLowerCase().replace(/\s+/g, ' ')
+
 /** What a motor lifts, from its name: "1/2 tonne", "1 tonne", "CM 1000 kg", "250kg", "half tonne". */
 export function liftFromName(name: string): number | null {
-  const s = name.toLowerCase().replace(/½/g, '1/2').replace(/¼/g, '1/4')
-  const part = /(\d+)\s*\/\s*(\d+)\s*-?\s*(?:t|ton|tons|tonne|tonnes)\b/.exec(s)
+  const s = plainName(name).replace(/½/g, '1/2').replace(/¼/g, '1/4')
+  const part = /(\d{1,3}) ?\/ ?(\d{1,3}) ?-? ?(?:tonnes?|tons?|t)\b/.exec(s)
   if (part && Number(part[2]) > 0) return Math.round((Number(part[1]) / Number(part[2])) * 1000)
   if (/\bhalf(?: a)?[ -]?(?:ton|tonne)\b/.test(s)) return 500
   if (/\bquarter(?: of a)?[ -]?(?:ton|tonne)\b/.test(s)) return 250
-  const tonnes = /(\d+(?:[.,]\d+)?)\s*-?\s*(?:t|ton|tons|tonne|tonnes)\b/.exec(s)
+  const tonnes = /(\d{1,3}(?:[.,]\d{1,3})?) ?-? ?(?:tonnes?|tons?|t)\b/.exec(s)
   if (tonnes) return Math.round(Number(tonnes[1]!.replace(',', '.')) * 1000)
-  const kilos = /(\d{2,5})\s*(?:kg|kgs|kilos?)\b/.exec(s)
+  const kilos = /(\d{2,5}) ?(?:kg|kgs|kilos?)\b/.exec(s)
   return kilos ? Number(kilos[1]) : null
 }
 
-const waysOf = (name: string) => {
-  const found = /(\d{1,3})\s*-?\s*(?:ways?|ch|chan|channels?)\b/i.exec(name)
+/** How many ways a distro has, or how many motors a control runs, from its name: "18 way", "12way", "LV12 ch". */
+export function waysFromName(name: string): number | null {
+  const found = /(\d{1,3}) ?-? ?(?:ways?|ch|chan|channels?)\b/.exec(plainName(name))
   return found ? Number(found[1]) : null
 }
 
@@ -439,7 +447,7 @@ export function screenPlan(ask: ScreenAsk, models: readonly ScreenProduct[], pic
   const distroRow = () => {
     const circuits = f.circuits === null ? null : f.circuits * count
     const found = preferred(
-      all.filter((m) => DISTRO.test(m.name) && FOR_SCREENS.test(said(m))).map((m) => ({ m, ways: waysOf(m.name) })),
+      all.filter((m) => DISTRO.test(m.name) && FOR_SCREENS.test(said(m))).map((m) => ({ m, ways: waysFromName(m.name) })),
       (d) => (circuits && d.ways ? Math.ceil(circuits / d.ways) : 1),
       (d) => priced(d.m.id),
       (d) => enough(d.m.id, 1),
@@ -518,7 +526,7 @@ export function screenPlan(ask: ScreenAsk, models: readonly ScreenProduct[], pic
       ...(motor ? {} : { none: 'No motor found in the stock list.' }),
     })
     const controls = preferred(
-      all.filter((m) => MOTOR.test(m.name) && CONTROL.test(m.name)).map((m) => ({ m, runs: waysOf(m.name) })),
+      all.filter((m) => MOTOR.test(m.name) && CONTROL.test(m.name)).map((m) => ({ m, runs: waysFromName(m.name) })),
       (c) => (c.runs ? Math.ceil((points * count) / c.runs) : 1),
       (c) => (c.runs ? 0 : 1),
       (c) => priced(c.m.id),

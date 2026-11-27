@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { lineMark, linesByGroup, looksLikePanel, needsPrice, panelPitch, panelWords, quoteLine, setCents, stockCommandSchemas, type PanelFacts, type QuoteLine } from '../src/index.ts'
-import { gridFor, lengthsFor, liftFromName, panelChoices, screenFacts, screenIncludes, screenPlan, screenWhat, standsOn, trussFamilies, type ScreenProduct } from '../src/led-screen.ts'
+import { gridFor, lengthsFor, liftFromName, panelChoices, screenFacts, screenIncludes, screenPlan, screenWhat, standsOn, trussFamilies, waysFromName, type ScreenProduct } from '../src/led-screen.ts'
 
 /**
  * The LED screen builder's sums (ADR 0207), against a stock list named the way a hire company's really is: lengths in
@@ -117,6 +117,24 @@ describe('a screen in whole panels', () => {
 describe('kit found by what it is called', () => {
   it('reads what a motor lifts from its name', () => {
     expect(['1/2 tonne stage maker motor', '1 Tonne CM motor', 'CM 1000 kg motor', 'Lodestar 250kg', 'half tonne hoist', '2t hoist', 'A motor'].map(liftFromName)).toEqual([500, 1000, 1000, 250, 500, 2000, null])
+  })
+  it('reads how many ways a distro has, or how many motors a control runs, from its name', () => {
+    expect(['SES 18 way video distro', '12way  veem 5pin dmx truss box', 'LV12 ch motor control', '8-way motor controller', '4 channel control', 'Power distro'].map(waysFromName)).toEqual([18, 12, 12, 8, 4, null])
+  })
+  it('reads a name the same however its spaces are typed, and is never slow on a long one', () => {
+    expect(liftFromName('1 / 2   tonne motor')).toBe(500)
+    expect(liftFromName('2\t-  tonne hoist')).toBe(2000)
+    expect(liftFromName('0,5 t hoist')).toBe(500)
+    expect(waysFromName('18   -   way distro')).toBe(18)
+    // A pattern that takes any run of digits or spaces goes over the run again from each place in it: these took from a
+    // third of a second to three seconds each at a third of this length.
+    const long = ['9'.repeat(100_000), `9/9${' '.repeat(100_000)}`, `9${' '.repeat(100_000)}x`]
+    const start = performance.now()
+    for (const name of long) {
+      expect(liftFromName(name)).toBeNull()
+      expect(waysFromName(name)).toBeNull()
+    }
+    expect(performance.now() - start).toBeLessThan(1000)
   })
   it('gathers straight truss into families by its lengths', () => {
     expect(trussFamilies(stock).map((f) => [f.name, f.pieces.map((p) => p.lengthM), f.kgPerM])).toEqual([
