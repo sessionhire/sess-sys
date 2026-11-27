@@ -945,6 +945,7 @@ describe('crew invites (ADR 0009)', () => {
       answers: { '2030-03-02': 'none', '2030-03-03': 'none' },
       line: 'Invited on Google Calendar; no answer yet.',
       warning: null,
+      bookedNo: [],
     })
     // Seán has no email address, so nothing on Google Calendar for him.
     expect(offerOnCalendar(f.get<Offer>('offer', job.offers.sean), f.days, TODAY)).toBeUndefined()
@@ -1487,6 +1488,7 @@ describe('crew invites (ADR 0009)', () => {
       line: 'Said yes on Google Calendar.',
       // "Still open" is what he could still take: Saturday is his already.
       warning: "Said yes on Google Calendar, but the app couldn't take it: Sun 3 Mar has just been filled.",
+      bookedNo: [],
     })
     const entry = (await s.colly.history()).entries[0]!
     expect(entry).toMatchObject({ who: { kind: 'calendar', name: 'Conor Walsh' }, outcome: 'turned-down' })
