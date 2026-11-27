@@ -351,10 +351,12 @@ export interface OfferOnCalendar {
   line: string
   /** Something for the office to act on, in words. */
   warning: string | null
+  /** Days they're booked for and said no to on Google, not yet noted (27 November 2026): what Noted keeps them booked for. */
+  bookedNo: string[]
 }
 
 export function offerOnCalendar(
-  offer: Pick<Offer, 'id' | 'status' | 'days'> & { counterRateCents?: number | null },
+  offer: Pick<Offer, 'id' | 'status' | 'days'> & { counterRateCents?: number | null; notedNo?: readonly string[] },
   days: Readonly<Record<string, CalendarDay>>,
   today: string
 ): OfferOnCalendar | undefined {
@@ -386,7 +388,8 @@ export function offerOnCalendar(
     ].filter(Boolean)
     line = `On Google Calendar: ${parts.join('; ')}.`
   }
-  const bookedNo = offer.status === 'confirmed' ? no.filter((d) => offer.days.includes(d)) : []
+  // A No the office has noted and kept them booked over (27 November 2026) is settled: only a No to another booked day is new.
+  const bookedNo = offer.status === 'confirmed' ? no.filter((d) => offer.days.includes(d) && !offer.notedNo?.includes(d)) : []
   // A Yes the offer doesn't show, because the app couldn't take it: the reason stands until it does.
   const unmet = offer.status === 'accepted' || offer.status === 'confirmed' ? yes.filter((d) => !offer.days.includes(d)) : yes
   const warning = bookedNo.length
@@ -399,5 +402,5 @@ export function offerOnCalendar(
           // their rate was with the office, which then said no to it (ADR 0152): it was never theirs to count.
           (problem ?? (offer.status === 'offered' && typeof offer.counterRateCents === 'number' ? YES_WHILE_ASKING : null))
         : null
-  return { answers, line, warning }
+  return { answers, line, warning, bookedNo }
 }

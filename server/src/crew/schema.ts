@@ -369,6 +369,8 @@ const MIGRATIONS: string[] = [
   ALTER TABLE people ADD COLUMN IF NOT EXISTS trades_as text CHECK (trades_as IN ('sole-trader', 'company'));
   ALTER TABLE people ADD COLUMN IF NOT EXISTS vat_registered boolean;
   `,
+  // A No on Google Calendar to booked days, noted with them kept booked (27 November 2026): those days' No is settled.
+  `ALTER TABLE offers ADD COLUMN IF NOT EXISTS noted_no jsonb NOT NULL DEFAULT '[]';`,
 ]
 
 export const CREW: Module = { versionTable: 'crew_schema_version', migrations: MIGRATIONS }

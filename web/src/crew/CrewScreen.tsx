@@ -60,7 +60,7 @@ import { Heading } from '../Icon.tsx'
 import { CallCard, OfferForm } from './Calls.tsx'
 import { NewPerson, PersonRow, found, wordsOf } from './People.tsx'
 import { type Share, SharePanelFor, promptFor } from './Messages.tsx'
-import { AnswerActions } from './AnswerActions.tsx'
+import { AnswerActions, BookedNoActions } from './AnswerActions.tsx'
 
 /**
  * Ops' crew screen: jobs that need people, the offers out for them, and
@@ -267,7 +267,10 @@ export function CrewScreen() {
   const docs = view.documents.toCheck.filter((d) => theirs(d.person))
   // The heading's counts are Home's, from the same lists (Move 3 of the sweep of 6 November 2026): answers apart from anyone running late.
   const waiting = standing(view, today, { department: answersFor })
-  const markAnswer = (o: OfferView) => setAnswerAt(late.length + docs.length + toSortOut.length + Math.max(0, toCheck.findIndex((a) => a.offer.id === o.id)))
+  const markAnswer = (o: OfferView) => {
+    const sorting = toSortOut.findIndex((a) => a.o.id === o.id)
+    setAnswerAt(late.length + docs.length + (sorting >= 0 ? sorting : toSortOut.length + Math.max(0, toCheck.findIndex((a) => a.offer.id === o.id))))
+  }
   // The Send or Tell card for an answer just settled, in the row's place, kept in view under Show all wherever it falls.
   const answerCard = shareAt === ANSWERS ? panel : undefined
   const withAnswerCard = (rows: ReactNode[]) => (answerCard ? [...rows.slice(0, answerAt), answerCard, ...rows.slice(answerAt)] : rows)
@@ -430,25 +433,33 @@ export function CrewScreen() {
                       />
                     )),
                     ...docs.map((d) => <DocumentToCheck key={d.id} doc={d} />),
-                    ...toSortOut.map(({ c, o, text }) => (
-                      <div className="row" key={o.id}>
-                        <div>
-                          <b>{o.person?.name ?? 'Someone'}</b> answered on Google Calendar
-                          <p>
-                            {c.project} · {c.role} · {o.status === 'confirmed' ? 'booked' : 'offered'} {daysLabel(o.days)}
-                            <br />
-                            {text}
-                          </p>
-                        </div>
-                        {c.projectId && (
-                          <div className="actions">
-                            <a className="link" href={`#jobs/${c.projectId}/crew`}>
-                              Open job
-                            </a>
+                    ...toSortOut.map(({ c, o, text, bookedNo }) => {
+                      const openJob = c.projectId && (
+                        <a className="link" href={`#jobs/${c.projectId}/crew`}>
+                          Open job
+                        </a>
+                      )
+                      return (
+                        <div className="row" key={o.id}>
+                          <div>
+                            <b>{o.person?.name ?? 'Someone'}</b> answered on Google Calendar
+                            <p>
+                              {c.project} · {c.role} · {o.status === 'confirmed' ? 'booked' : 'offered'} {daysLabel(o.days)}
+                              <br />
+                              {text}
+                            </p>
                           </div>
-                        )}
-                      </div>
-                    )),
+                          {/* A No to booked days is settled here (27 November 2026): Noted keeps them booked, Release frees the place. */}
+                          {mayCrew && bookedNo.length > 0 ? (
+                            <BookedNoActions o={o} call={c} days={bookedNo} run={answers.run} onPress={() => markAnswer(o)} onDone={(share) => setShare(share, ANSWERS)}>
+                              {openJob}
+                            </BookedNoActions>
+                          ) : (
+                            openJob && <div className="actions">{openJob}</div>
+                          )}
+                        </div>
+                      )
+                    }),
                     ...toCheck.map(({ call: c, offer: o, kind, short, warning }) => (
                       <div className="row" key={o.id}>
                         {kind === 'no-reply' ? (

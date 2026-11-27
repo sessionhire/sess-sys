@@ -64,6 +64,8 @@ export interface CalendarAnswer {
   c: CallView
   o: OfferView
   text: string
+  /** Booked days they said no to, for Noted to keep them booked for; none when it's a Yes the app couldn't take. */
+  bookedNo: string[]
 }
 
 /** Answers on Google Calendar the app couldn't act on: for the office to sort out, counted in "Answers to check". */
@@ -75,7 +77,7 @@ export function calendarAnswersToSortOut(view: View, today: string): CalendarAns
         .filter((o) => o.status === 'offered' || o.status === 'confirmed')
         .flatMap((o) => {
           const cal = offerOnCalendar(o, view.calendar.days, today)
-          return cal?.warning ? [{ c, o, text: o.status === 'confirmed' ? cal.warning : `${cal.line} ${cal.warning}` }] : []
+          return cal?.warning ? [{ c, o, text: o.status === 'confirmed' ? cal.warning : `${cal.line} ${cal.warning}`, bookedNo: cal.bookedNo }] : []
         }),
     )
 }
