@@ -508,6 +508,7 @@ function NewQuote({ view, on, onCancel }: { view: View; on?: string | undefined;
         view={view}
         client={f.client}
         venue={f.venue}
+        name={f.name}
         days={eachDay(f.start, f.end < f.start ? f.start : f.end).length}
         today={today}
         chosen={fromJob}

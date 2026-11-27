@@ -1028,6 +1028,10 @@ body:has(.foot-dock:not(:empty)) .cancel-job { scroll-margin-bottom: 112px; }
 .app .claude-lines label.take small { display: block; color: var(--muted); font-size: var(--text-hint); }
 .app .claude-line.left b { color: var(--muted); font-weight: normal; }
 .app .claude-lines label.take small.beyond { color: var(--warn); }
+/* Start from a past gig, on a job's quote (Colly, 27 November 2026): one column, the add row's whole width. */
+.app .from-past-gig { grid-template-columns: 1fr; width: 100%; flex: 1 0 100%; margin-block: var(--ds-space-3); }
+.app .from-past-gig .past-jobs { display: grid; gap: var(--ds-space-2); }
+.app .from-past-gig .past-jobs h3 { margin: 0; }
 /* Start from a past job (ADR 0115): the jobs like this one, each a press to start from. */
 .app .past-job-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ds-space-2); }
 .app .past-job { display: grid; gap: var(--ds-space-half); width: 100%; min-height: 44px; text-align: left; padding: var(--ds-space-2) var(--ds-space-3); border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--panel); color: var(--ink); font: inherit; cursor: pointer; }
