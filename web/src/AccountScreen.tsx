@@ -5,6 +5,7 @@ import { ChangesCard } from './ChangesScreen.tsx'
 import { CurrentRmsCard } from './CurrentRmsCard.tsx'
 import { RmsMembersCard } from './RmsMembersCard.tsx'
 import { RmsPricesCard } from './RmsPricesCard.tsx'
+import { ValuesFromListCard } from './ValuesFromListCard.tsx'
 import { DataCard } from './DataCard.tsx'
 import { ExportCard } from './ExportCard.tsx'
 import { LabelsCard } from './LabelsCard.tsx'
@@ -137,6 +138,7 @@ export function AccountScreen() {
                 {settings && <BackupsCard />}
                 {settings && <ExportCard />}
                 {settings && <ListsCard calendar={access.can('jobs')} />}
+                {access.can('stock') && <ValuesFromListCard view={view} />}
                 {company && <DataCard view={view} />}
               </>
             )}
