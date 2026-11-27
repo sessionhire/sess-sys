@@ -36,15 +36,35 @@ waiting on someone.
   it's made. What's typed is kept if the sheet is shut.
 - It is a first pass to quote from, not a structural check, and says so.
   Cables, slings, shackles, spare panels and ballast aren't added.
-- Checked: the sums (33 shared tests, with the kit we hold by its real
+- Checked: the sums (35 shared tests, with the kit we hold by its real
   names), the server's tests for a panel's size, a screen's line, the printed
   quote and the client's page, a browser test at a desk and on a phone (add,
-  reload, change, remove and Undo, shut and reopen, a ground stack), the
-  screens looked at in both themes, and every check on the pull request.
+  reload, change, remove and Undo, shut and reopen, a ground stack, and the
+  narrowest phone), the screens looked at in both themes, and every check on
+  the pull request. Its code scan found three patterns that read a motor's
+  lift and a distro's ways from a product's name and would be slow on a very
+  long one; they're rewritten so they can't be.
 - Waiting on Colly: give each panel its size, pixels, weight and power the
   first time it's used (or on its product page), and put the base plate's
   weight on its product so a ground stack can say the wind it holds to. Then
   try it on a real quote and say what reads wrong.
+
+## 27 November 2026: start a quote from a similar past gig
+
+**Done (1.244.0, #465, ADR 0115 amended; merged at e94776d5)**
+
+- Colly: "Can we add a section on the quote page to use previous quote as a
+  template? With a list of other gigs kit lists that match either the venue,
+  the client, the name or both. the more matches the higher in the list."
+- A job's Quote tab has Start from a past gig: on Make a quote, open on an
+  empty draft, and under More to add as Add from a past gig once it has
+  lines. Past gigs with the same client, the same venue or a similar name,
+  the most in common first, each saying what matched. Picking one shows its
+  lines, kit as much as went out, ticked, to add after any already on.
+  Current RMS quotes for the client rank the same way.
+- New quote's Start from list counts a similar name too and ranks the same.
+- Checked: shared tests, the past-job, quote-start and quote-follow-up
+  browser tests, and every check on the PR.
 
 ## 27 November 2026: Claude checks replacement values
 
