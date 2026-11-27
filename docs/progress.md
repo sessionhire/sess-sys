@@ -3,6 +3,25 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 27 November 2026: Claude checks replacement values
+
+**Done (1.243.0, #463, ADR 0206; live at 9a5c4e79)**
+
+- Colly: "Can this be made a process for the claude inside of the app in case
+  we need to rerun in future?"
+- Admin › Data › Check replacement values with Claude: pick the products
+  with no value yet or every product, and a department; it says about what
+  it costs (about 10 US cents a product) against what's left of the month.
+  Claude looks each up, three at a time, in euro with VAT: High for a
+  Thomann price (ex-VAT ×1.23) or two shops agreeing, Medium for one other
+  shop, Low otherwise. Stop part way; the app stays open while it runs.
+  High is chosen by default; Use N prices fills Replacement values from a
+  list, which shows every change before Set. The results download as a sheet.
+- Checked: shared and server tests, the card's browser test with the
+  stand-in for Anthropic, and every check on the PR.
+- Waiting on Colly: Claude on under Admin › Claude, then run it once every
+  product is on the list.
+
 ## 27 November 2026: replacement values from a list
 
 **Done (1.242.0, #460, ADR 0204)**
