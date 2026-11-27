@@ -1,6 +1,7 @@
 import { plural, readValueList, valueLabel, valueListPlan, type ValueListPlan, type View } from '@sh/shared'
-import { useMemo, useState, type ChangeEvent, type ReactNode } from 'react'
+import { useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
 import { Refusal, useAct } from './act.tsx'
+import { PriceCheckCard } from './PriceCheckCard.tsx'
 import { client } from './sync.ts'
 
 /**
@@ -27,6 +28,7 @@ export function ValuesFromListCard({ view }: { view: View }) {
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState('')
   const { run, error } = useAct()
+  const card = useRef<HTMLElement>(null)
 
   const models = view.warehouse.models
   const read = useMemo(() => (text.trim() ? readValueList(text) : undefined), [text])
@@ -62,8 +64,18 @@ export function ValuesFromListCard({ view }: { view: View }) {
     })
 
   const problemText = problem || read?.problem
+  // Claude's price check (ADR 0206) hands its chosen prices over as a sheet, to be looked over here like any other.
+  const fromClaude = (sheet: string, label: string) => {
+    setText(sheet)
+    setFileName(label)
+    setProblem('')
+    setNote('')
+    card.current?.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' })
+  }
   return (
-    <section className="card values-from-list" aria-labelledby="values-from-list-title">
+    <>
+      <PriceCheckCard view={view} onList={fromClaude} />
+      <section ref={card} className="card values-from-list" aria-labelledby="values-from-list-title">
       <h2 id="values-from-list-title">Replacement values from a list</h2>
       <p>
         After a price check, set many products' replacement value at once. Choose the sheet saved as CSV, with a column for the product and one for the new value
@@ -151,12 +163,13 @@ export function ValuesFromListCard({ view }: { view: View }) {
           </button>
         </div>
       )}
-    </section>
+      </section>
+    </>
   )
 }
 
 /** One kind of row: its count, and what it holds a tap away. Nothing shows for none. */
-function Part({ n, title, hint, open, children }: { n: number; title: string; hint?: string; open?: boolean; children?: ReactNode }) {
+export function Part({ n, title, hint, open, children }: { n: number; title: string; hint?: string; open?: boolean; children?: ReactNode }) {
   if (n === 0) return null
   const head = (
     <span>

@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.243.0',
+    date: '2026-11-27',
+    title: 'Claude checks replacement values',
+    what: "Admin › Data has a new card, Check replacement values with Claude, so the price check can be run again whenever the stock list grows. Pick the products with no value yet, or every product, and a department if you like; it says about what it will cost from Claude's monthly limit. Claude then looks each one up at shops in Ireland and the EU, in euro with VAT, and says how sure it is: High for a Thomann price or two shops agreeing, Medium for one other shop, Low for anything less. You can stop it part way, and the app has to stay open while it runs. Nothing is set by it: the High prices, and Medium or Low if you choose, go into Replacement values from a list, which shows every change from what to what before you press Set. The results can be downloaded as a sheet too.",
+    prs: [463],
+    adrs: [206],
+  },
+  {
     version: '1.242.1',
     date: '2026-11-27',
     title: 'Cancelling a job says what it does first',
