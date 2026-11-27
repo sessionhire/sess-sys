@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.241.1',
+    date: '2026-11-27',
+    title: 'The message after releasing someone who said no',
+    what: "Releasing someone who had said no on Google Calendar to a day they were booked for opened a message saying sorry, we no longer need you, as if the office had dropped them. It now thanks them for letting you know they can't do that day and says they've been taken off the job. Done on these message cards is a plain button now, not a red one.",
+    prs: [459],
+  },
+  {
     version: '1.241.0',
     date: '2026-11-27',
     title: 'Freelancers can use a laptop’s webcam to add products',

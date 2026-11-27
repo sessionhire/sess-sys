@@ -355,6 +355,20 @@ export interface OfferOnCalendar {
   bookedNo: string[]
 }
 
+/**
+ * The days someone booked said no to on Google Calendar, noted or not (27 November 2026): a release after them is their No
+ * being taken, and the message to them says so.
+ */
+export function bookedDaysSaidNo(
+  offer: Pick<Offer, 'id' | 'status' | 'days'> & { counterRateCents?: number | null },
+  days: Readonly<Record<string, CalendarDay>>,
+  today: string
+): string[] {
+  if (offer.status !== 'confirmed') return []
+  const answers = offerOnCalendar(offer, days, today)?.answers ?? {}
+  return offer.days.filter((d) => answers[d] === 'no')
+}
+
 export function offerOnCalendar(
   offer: Pick<Offer, 'id' | 'status' | 'days'> & { counterRateCents?: number | null; notedNo?: readonly string[] },
   days: Readonly<Record<string, CalendarDay>>,
