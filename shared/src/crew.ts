@@ -918,6 +918,11 @@ export interface TellContext {
   days?: readonly string[]
   /** For a rate turned down: the rate they asked for (ADR 0152). */
   askedRateCents?: number | null
+  /**
+   * For a release: the days they'd said no to on Google Calendar while booked (27 November 2026), so the message thanks
+   * them for saying rather than telling them they're not needed.
+   */
+  saidNo?: readonly string[]
   /** For a rate turned down on a call that has filled meanwhile: the offer closes with it, rather than standing (ADR 0152). */
   filled?: boolean
   /** The booking, for the timesheet's address. */
@@ -974,6 +979,16 @@ export function tellMessage(event: TellEvent, p: Addressee, ctx: TellContext, li
         what: 'withdrawal',
       }
     case 'released':
+      // Let go after they said no to a booked day: it's their No being taken, so it says so and thanks them (27 November 2026).
+      if (ctx.saidNo?.length)
+        return {
+          text: lines([
+            `Hi ${first}, thanks for letting us know you can't do ${daysLabel([...ctx.saidNo])}.`,
+            `We've taken you off ${job}: ${c.role}, ${when}. It's off your bookings and your calendar feed, so there's nothing to do, and ${next}`,
+          ]),
+          subject: `Taken off: ${job}, ${when}`,
+          what: 'release',
+        }
       return {
         text: lines([
           `Hi ${first}, sorry, we no longer need you for ${job}: ${c.role}, ${when}.`,
