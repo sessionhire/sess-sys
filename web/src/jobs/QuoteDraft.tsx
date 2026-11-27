@@ -390,7 +390,6 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
     by: deliveryBy,
     truckCents,
     trips,
-    oneWayPct: m.quoting.deliveryOneWayPct,
     id: q.lines.find((l) => l.extra === 'delivery')?.id,
     newId: useStableIds(),
   })

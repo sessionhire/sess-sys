@@ -171,7 +171,7 @@ export function QuotePart({ view, job }: { view: View; job: JobView }) {
               {q.depositPct ? ` · A deposit of ${pctWord(q.depositPct)}, ${money(depositCents(q.totals.gross, q.depositPct))}` : ''}
             </p>
             <Lines lines={q.lines} />
-            <Totals totals={q.totals} agreed={q.agreedCents != null} />
+            <Totals totals={q.totals} agreed={q.agreedCents != null} lines={q.lines} />
             {/* What a quote makes (ADR 0089) is seen by all who see quotes: the office and directors, the only ones shown this tab. */}
             <p className="quote-margin">
               <MarginWords label="Expected margin" margin={quoteMargin(q.totals.net, q.lines.map((l) => lineCostOf(l, l.kind === 'crew' ? m.bookedRate(job.id, l) : undefined, m.quoting.ownKitCostPct)), ownKitUncosted(q.lines, m.quoting.ownKitCostPct))} />

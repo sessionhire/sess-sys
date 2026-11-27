@@ -208,7 +208,6 @@ export const financeHandlers: { [N in FinanceCommand]: Handler<N> } = {
          delivery_base_km = CASE WHEN $6::boolean THEN quote_settings.delivery_base_km ELSE EXCLUDED.delivery_base_km END`,
       [QUOTE_SETTINGS_ID, a.centsPerKm, a.baseCents ?? null, a.baseKm ?? null, a.baseCents === undefined, a.baseKm === undefined]
     )
-    if (a.oneWayPct !== undefined) await ctx.tx.query('UPDATE quote_settings SET delivery_one_way_pct = $2 WHERE id = $1', [QUOTE_SETTINGS_ID, a.oneWayPct])
     await emit(ctx, 'quoteSettings', QUOTE_SETTINGS_ID, await getQuoteSettings(ctx.tx))
   },
 

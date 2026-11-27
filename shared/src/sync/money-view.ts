@@ -361,8 +361,6 @@ export function moneyView(
         if (a.centsPerKm === null) delete quoting.deliveryCentsPerKm
         if (a.baseCents === null) delete quoting.deliveryBaseCents
         if (a.baseKm === null) delete quoting.deliveryBaseKm
-        if (a.oneWayPct !== undefined) quoting.deliveryOneWayPct = a.oneWayPct
-        if (a.oneWayPct === null) delete quoting.deliveryOneWayPct
         break
       }
       case 'quoting.ownKit': {

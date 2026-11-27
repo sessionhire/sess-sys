@@ -78,8 +78,6 @@ export type DeliveryBy = (typeof DELIVERY_BY)[number]
 /** Which way it goes (Colly, 26 November 2026): there and back, or one way only. */
 export const DELIVERY_TRIPS = ['both', 'delivery', 'collection'] as const
 export type DeliveryTrips = (typeof DELIVERY_TRIPS)[number]
-/** A one-way trip's share of the van's price until Admin says otherwise. */
-export const DEFAULT_ONE_WAY_PCT = 50
 
 export const LINE_EXTRAS = ['travel', 'subsistence', 'accommodation', 'delivery'] as const
 export type LineExtra = (typeof LINE_EXTRAS)[number]
@@ -332,8 +330,6 @@ export interface QuoteSettings {
   deliveryBaseCents?: number | null
   deliveryBaseKm?: number | null
   deliveryCentsPerKm?: number | null
-  /** A one-way van trip (delivery or collection only) as a share of the price there and back; left out is half. */
-  deliveryOneWayPct?: number | null
   /**
    * Whether a quote can be sent to the client by email from the operations mailbox, with its PDF attached (ADR 0101).
    * Off until the office turns it on under Admin, as every way the app reaches anyone outside is (ADR 0048). Left out by
@@ -511,7 +507,6 @@ const quoteNumber = z.number(wrongType(NUMBER_HINT)).int(NUMBER_HINT).min(1, NUM
 /** A price agreed for the whole quote, before VAT. */
 const agreedCents = euroCents(10_000_000_00, 'The price agreed')
 const CAR_HINT = 'How many share a car is a whole number from 1 to 8.'
-const ONE_WAY_HINT = 'One way is a whole percentage of the price from 10 to 100, such as 50.'
 const DELIVERY_KM_HINT = 'The km the set amount covers is a whole number from 0 to 1000.'
 const STAY_HINT = 'The crew stay over past a whole number of km from 0 to 1,000.'
 const KM_HINT = 'The distance is a whole number of km from 0 to 2,000.'
@@ -640,8 +635,6 @@ export const quoteCommandSchemas = {
     baseCents: euroCents(10_000_00, 'The set amount for a delivery').nullable().optional(),
     baseKm: z.number(wrongType(DELIVERY_KM_HINT)).int(DELIVERY_KM_HINT).min(0, DELIVERY_KM_HINT).max(1000, DELIVERY_KM_HINT).nullable().optional(),
     centsPerKm: euroCents(100_00, 'A km of delivery').nullable(),
-    // A one-way trip's share (ADR 0201, amended), left as it was by an app from before it.
-    oneWayPct: z.number(wrongType(ONE_WAY_HINT)).int(ONE_WAY_HINT).min(10, ONE_WAY_HINT).max(100, ONE_WAY_HINT).nullable().optional(),
   }),
   /** What own kit costs us to run, as a share of its price (finding 19 of the quote flow audit); null for not set. */
   'quoting.ownKit': z.object({ costPct: z.number(wrongType(OWN_KIT_HINT)).int(OWN_KIT_HINT).min(0, OWN_KIT_HINT).max(90, OWN_KIT_HINT).nullable() }),
@@ -690,6 +683,19 @@ export const quoteCommandSchemas = {
 /** A line's amount: how many, for how many days, at the price for one a day, to the cent. */
 export const lineCents = (l: Pick<QuoteLine, 'qty' | 'days' | 'unitCents' | 'per' | 'discountPct'>) =>
   Math.round(l.qty * (l.per === 'once' ? 1 : l.days) * l.unitCents * (1 - (l.discountPct ?? 0) / 100))
+
+/**
+ * What a line's own discount takes off it, in cents (Colly, 26 November 2026): the amount before the discount less the amount
+ * after it. Nothing for a line with no discount, given at no charge, or with no price.
+ */
+export function lineDiscountCents(l: Pick<QuoteLine, 'qty' | 'days' | 'unitCents' | 'per' | 'discountPct' | 'included' | 'words'>): number {
+  if (!l.discountPct || l.included || l.words || !(l.unitCents > 0)) return 0
+  return lineCents({ ...l, discountPct: undefined }) - lineCents(l)
+}
+
+/** Whether any line of a quote has a discount of its own to show, so the printed quote gives discounts a column (Colly, 26 November 2026). */
+export const anyLineDiscount = (lines: readonly Pick<QuoteLine, 'qty' | 'days' | 'unitCents' | 'per' | 'discountPct' | 'included' | 'words'>[]) =>
+  lines.some((l) => lineDiscountCents(l) > 0)
 
 /**
  * What a line costs Session Hire (ADR 0089), before VAT: what's typed on it, or else, for crew, what they're booked

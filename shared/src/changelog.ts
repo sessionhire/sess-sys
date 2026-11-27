@@ -28,12 +28,27 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
-    version: '1.237.0',
-    date: '2026-11-26',
+    version: '1.238.0',
+    date: '2026-11-27',
     title: 'A cable’s length beside its name',
     what: 'A cable’s length now shows after its name everywhere: on its page, the stock list, pick lists, the job’s kit, call sheets and quotes. Its page says its length, or lets you give it there and then. Change details and New product ask for a cable’s length right under its name, and if the name has a length in it, one press moves it to the Length box. “XLR” 5 m long and “XLR” 10 m long can now be two products, so the length needn’t be in the name. Menu › Lengths in names lists every product with a length in its name and moves the ones you pick into their Length, after you check them.',
     prs: [452],
     adrs: [202],
+  },
+  {
+    version: '1.237.1',
+    date: '2026-11-26',
+    title: 'The Dublin flat fee is for each trip',
+    what: "The van's prices under Admin › Company › Delivery and collection are now for one trip. With the €70 set there, a delivery only or a collection only is €70, and delivery and collection is two trips, €140, shown on the quote as 2 × €70. Km past the flat fee are charged on each trip. The One way only share is gone, since a trip is a trip.",
+    prs: [454],
+    adrs: [201],
+  },
+  {
+    version: '1.237.0',
+    date: '2026-11-26',
+    title: 'Discounts shown on the printed and PDF quote',
+    what: 'When a line on a quote has a discount of its own, the printed quote and its PDF get a Discount column beside the amount: how much off, as a percentage, and what that takes off in euro, so the client sees the price, the discount and what they pay. A discount off the whole quote is called Overall discount when lines have their own too. The client’s online page shows each line’s discount under its amount. A quote with no line discounts looks just as before.',
+    prs: [451],
   },
   {
     version: '1.236.0',
