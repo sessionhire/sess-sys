@@ -3,6 +3,46 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 27 November 2026: cancelling a job says what it does first
+
+**Done (1.242.1, #461, ADR 0205)**
+
+- Colly sent a screenshot of the form behind Cancel this job…: "This UI for
+  cancelling a gig can be improved a lot." It sat in the buttons' row beside
+  Change details, a button wide: radio buttons centred over their words, the
+  reason box's example cut off and ringed in red as it opened, Keep the job in
+  red and the press that stops the gig plain, and nothing about what stopping
+  does until a question after the press, which spoke only of crew.
+- It is now a card of its own where the buttons were. What happened is two
+  choices, Cancelled or Lost, each with a line of what it means. Why is
+  optional, with an example in the box and a line under it saying the words
+  stay in the office notes. Beside them, "What this does" lists what the press
+  changes on this job before it's made: the crew calls cancelled, who will see
+  it and what Google or WhatsApp sends them, the kit and vehicles free for
+  other jobs again, kit already out or hired in that the office has to sort
+  out, the days that come off the calendar, and what happens to the quote.
+  What leaves the app, or leaves the office something to do, is in amber.
+  Under it, how to take the job up again, and that what crew have been told
+  can't be taken back.
+- The button that stops the job is the solid one, named Cancel the job or
+  Mark lost; Keep the job is plain. One press does it, with no second
+  question, and Enter in the Why box does nothing. On a phone it is one
+  column with the two buttons the card's width.
+- Nothing about what stopping a job does has changed, only what is said
+  before it.
+- Checked: typecheck; shared tests (new tests for every sentence the form can
+  say); new browser tests at desk and phone widths, with the calendar off and
+  connected; before and after screenshots, phone and desk, both themes, in
+  project files, cancel-job/.
+
+**Open**
+
+- What's sent to crew goes at once. Offer waits half a minute with Undo
+  (ADR 0162); stopping a job could do the same. It changes when the server
+  takes people off a live calendar, so it waits for Colly's say.
+- Change details › Status, the client's answer and the quotes to follow up
+  still ask the older question, which speaks only of crew.
+
 ## 26 November 2026: discounts on the printed and PDF quote
 
 **Done (1.237.0, #451)**

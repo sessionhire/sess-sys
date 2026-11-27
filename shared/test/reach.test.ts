@@ -611,6 +611,8 @@ describe('telling crew what happens next (ADR 0153)', () => {
     )
     const c = ctx({ days: both, link: link({ tell: 'on' }) })
     expect(jobEndingWords(c, [{ personId: 'aoife', offerId: 'o1', email: aoife.email }])).toBe(' Google emails them that the day is cancelled and why.')
+    // The cancel form has said what they'll see, and has a Why box of its own for the office: it leaves "and why" unsaid.
+    expect(jobEndingWords(c, [{ personId: 'aoife', offerId: 'o1', email: aoife.email }], { why: false })).toBe(' Google emails them that the day is cancelled.')
     expect(jobEndingWords(c, [{ personId: 'aoife', offerId: 'o1', email: aoife.email }, { personId: 'tommo', offerId: 'o2', email: null }])).toBe(
       ' Google emails each of them that the day is cancelled.'
     )
