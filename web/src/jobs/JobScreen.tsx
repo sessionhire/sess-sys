@@ -80,7 +80,7 @@ import { crewToCall, makeCallsFromQuote } from './crewFromQuote.ts'
 import { askForCrewAgain, type CrewAgain } from './crewAgain.ts'
 import { confirmQuestion, crewOnJob, holdingTheDay, stopQuestion } from './jobStatus.ts'
 import { YouOnThisJob } from './YouOnThisJob.tsx'
-import { CancelJob } from './CancelJob.tsx'
+import { CancelJob, canCancel } from './CancelJob.tsx'
 import { StepsCard } from './Steps.tsx'
 import { HireFields, hireDraftOf, hireTermsOf, placed, sameHire, type HireDraft } from './HireFields.tsx'
 import { useMe } from '../crew/Leave.tsx'
@@ -642,7 +642,25 @@ function JobLines({ job, view }: { job: JobView; view: View }) {
  */
 function Summary({ job, view, onTell }: { job: JobView; view: View; onTell: (share: Share | undefined) => void }) {
   const [editing, setEditing] = useState(false)
+  // Stopping the job opens in the buttons' place, as a card of its own (CancelJob.tsx); a job stopped meanwhile, from here or
+  // another device, has nothing left to stop.
+  const [stopping, setStopping] = useState(false)
+  const cancelling = stopping && canCancel(job)
+  // Stopped with the form open (from another device, say), it closes for good: set going again later, it doesn't spring back open.
+  useEffect(() => {
+    if (stopping && !cancelling) setStopping(false)
+  }, [stopping, cancelling])
   const mayChange = useAccess().can('jobs')
+  // Its buttons are back once the form has closed, and one of them takes the focus the form held, rather than it being lost: the
+  // one that opened it when the job is kept, the first when the job is stopped and nobody is to be told (the panel that says
+  // what was sent takes it otherwise).
+  const buttons = useRef<HTMLDivElement>(null)
+  const [focusOn, setFocusOn] = useState<'opener' | 'first'>()
+  useEffect(() => {
+    if (!focusOn || cancelling) return
+    buttons.current?.querySelector<HTMLElement>(focusOn === 'opener' ? '.cancel-job-open' : 'button')?.focus()
+    setFocusOn(undefined)
+  }, [focusOn, cancelling])
   if (!editing && !job.notes && !job.officeNotes && !job.venue?.notes && !mayChange) return null
   return (
     <section className={editing ? 'card' : 'job-notes'} aria-label="Details">
@@ -651,13 +669,31 @@ function Summary({ job, view, onTell }: { job: JobView; view: View; onTell: (sha
       {job.venue?.notes && <p className="notes">At the venue: {job.venue.notes}</p>}
       {editing ? (
         <EditJob job={job} view={view} onDone={() => setEditing(false)} onTell={onTell} />
+      ) : cancelling ? (
+        <CancelJob
+          job={job}
+          onKeep={() => {
+            setStopping(false)
+            setFocusOn('opener')
+          }}
+          onDone={(people) => {
+            setStopping(false)
+            const share = promptFor('job-stopped', people)
+            if (share) onTell(share)
+            else setFocusOn('first')
+          }}
+        />
       ) : (
         mayChange && (
-          <div className="actions">
+          <div className="actions" ref={buttons}>
             <button type="button" onClick={() => setEditing(true)}>
               Change details
             </button>
-            <CancelJob job={job} onTell={onTell} />
+            {canCancel(job) && (
+              <button type="button" className="cancel-job-open" onClick={() => setStopping(true)} disabled={job.pending}>
+                Cancel this job…
+              </button>
+            )}
           </div>
         )
       )}

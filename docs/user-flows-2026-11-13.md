@@ -165,7 +165,7 @@ It asks first and cancels the crew calls, which is right, but the way there is a
 
 **In the code:** `web/src/jobs/JobScreen.tsx (Change details)`.
 
-**Fixed:** A Cancel this job… button beside Change details: called off or lost, and why in a line, kept at the top of the office notes with the day.
+**Fixed:** A Cancel this job… button beside Change details: called off or lost, and why in a line, kept at the top of the office notes with the day. Since 1.242.1 it opens as a card of its own that lists what the press does to the job before it is made (ADR 0205).
 
 ### 7. Next repeats a press that goes where you are (fixed in 1.192.0)
 

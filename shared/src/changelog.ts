@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.242.1',
+    date: '2026-11-27',
+    title: 'Cancelling a job says what it does first',
+    what: "Cancel this job… under a job's details now opens as a card of its own. It asks what happened, Cancelled or Lost, each with a line saying what it means, and why, with the box saying its words stay in the office notes. Beside them it lists what the press does to this job before you make it: the crew calls cancelled, who sees it and what Google or WhatsApp sends them, the kit and vehicles free for other jobs again, any kit already out or hired in that's yours to sort out, the days that come off the calendar, and what happens to its quote. The button that stops the job is the solid one and says what it does, Cancel the job or Mark lost; Keep the job is the plain one. One press then does it, with no second question, and Enter in the Why box does nothing.",
+    prs: [461],
+    adrs: [205],
+  },
+  {
     version: '1.242.0',
     date: '2026-11-27',
     title: 'Set replacement values from a list',

@@ -705,10 +705,11 @@ svg .pkt-tape { fill: var(--tape); stroke: var(--tape-ink); stroke-width: .5; }
       </div>
       <div class="panel shots crewshots jobshots">
         <h3>Jobs, the start of Phase 1</h3>
-        <p class="small">Each job has its client, venue, status and phases, and each phase shows how its days will read on the calendar. Crew are asked for from the job, and a rename reaches the crew too. Cancelling a job cancels its crew. (Decision 0007)</p>
+        <p class="small">Each job has its client, venue, status and phases, and each phase shows how its days will read on the calendar. Crew are asked for from the job, and a rename reaches the crew too. Cancelling a job cancels its crew, and Cancel this job… on its page says what the press does before it's made: who is told and what Google or WhatsApp sends them, the kit and vehicles free for other jobs again, the days that come off the calendar, and what happens to its quote. (Decisions 0007 and 0205)</p>
         <div class="phones">
           <figure><img src="img/jobs-list.png" alt="Jobs tab on a phone: List, Week and Month at the top, a search box, filters for coming up, past and not going ahead, a confirmed job with 0 of 2 crew booked, and the new job form" width="390" height="844" loading="lazy"><figcaption><b>The list.</b> What's coming up, and how much crew is booked.</figcaption></figure>
           <figure><img src="img/jobs-job.png" alt="A job's page on a phone: Nissan launch, confirmed, with its client, venue, dates and crew, and the Build phase with its calendar titles and a call for two audio techs" width="390" height="844" loading="lazy"><figcaption><b>A job.</b> Its phases as the calendar will show them, with their crew.</figcaption></figure>
+          <figure><img src="img/cancel-job.png" alt="Cancel this job on a phone, as a card in the job's page: Harbour Lights Festival, Wed 11 Dec to Thu 12 Dec; What happened, with Cancelled picked (It was called off) over Lost (The client said no or went elsewhere); Why (optional), with an example in the box and a line saying it's kept in the office notes; and What this does: in amber, its crew call is cancelled, Aoife Brennan and Tommo Daly will see the job was cancelled, and Google emails each of them that their days are cancelled; then its 2 days come off the calendar" width="390" height="844" loading="lazy"><figcaption><b>Cancelling one.</b> What the press does, said before it's made.</figcaption></figure>
         </div>
       </div>
       <div class="panel shots crewshots jobshots">
@@ -1292,7 +1293,7 @@ svg .pkt-tape { fill: var(--tape); stroke: var(--tape-ink); stroke-width: .5; }
       <p class="fl-where">Job › Change details › Status</p>
       <p>It asks first and cancels the crew calls, which is right, but the way there is a select in Change details and no reason is kept. A lost quote keeps why; a cancelled job does not.</p>
       <p class="fl-code">web/src/jobs/JobScreen.tsx (Change details)</p>
-      <p class="fl-fix"><b>Fixed:</b> A Cancel this job… button beside Change details: called off or lost, and why in a line, kept at the top of the office notes with the day.</p>
+      <p class="fl-fix"><b>Fixed:</b> A Cancel this job… button beside Change details: called off or lost, and why in a line, kept at the top of the office notes with the day. Since 1.242.1 it opens as a card of its own that lists what the press does to the job before it is made (ADR 0205).</p>
     </li><li id="flow-fix-7" data-s="fixed">
       <div class="fl-top"><span class="fl-n">7</span><span class="fl-tag" data-s="fixed">Fixed in 1.192.0</span></div>
       <h4>Next repeats a press that goes where you are</h4>
