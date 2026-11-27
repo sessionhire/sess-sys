@@ -70,6 +70,7 @@ import { registerRmsRoutes } from './rms/routes.ts'
 import type { ClaudeConfig } from './assistant/claude.ts'
 import { Assistant, registerAssistantRoutes } from './assistant/routes.ts'
 import { registerProductReadRoutes } from './assistant/products.ts'
+import { registerPriceCheckRoutes } from './assistant/prices.ts'
 import { Todo } from './assistant/todo.ts'
 import type { Gmail } from './assistant/gmail.ts'
 import { Mailbox } from './assistant/mailbox.ts'
@@ -746,6 +747,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   app.decorate('assistantTodo', todo)
   registerAssistantRoutes(app, { assistant, todo })
   registerProductReadRoutes(app, { assistant })
+  registerPriceCheckRoutes(app, { assistant })
   registerAddProductsLink(app, { db, files: documents, assistant, onChange: changed })
   const mailbox = new Mailbox(db, assistant, google, calendar?.clientSecret, () => void poke(), app.log, options.gmail)
   app.decorate('assistantMailbox', mailbox)
