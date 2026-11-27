@@ -519,6 +519,8 @@ export function ScreenBuilder({ view, days, free, room, was, count: asked, kept,
                   {words}
                 </p>
               ))}
+              {/* Said with the weights and the wind it speaks of: under the list it would be read after them, or not at all. */}
+              <p className="screen-caveat">A first pass to quote from, not a structural check: whoever rigs it checks what it hangs from or stands on.</p>
             </div>
             <ul className="screen-parts" aria-label="Kit to add to the quote">
               {plan.rows.map((row) => {
@@ -590,7 +592,6 @@ export function ScreenBuilder({ view, days, free, room, was, count: asked, kept,
                 )}
               </div>
             )}
-            <p className="hint screen-caveat">A first pass to quote from, not a structural check: whoever rigs it checks what it hangs from or stands on.</p>
             <details className="screen-working">
               <summary>How it was worked out</summary>
               <ul>

@@ -1381,6 +1381,8 @@ dialog.screen-sheet .screen-answer > h3 { margin: 0; font-size: var(--text-pill)
 .screen-facts .unknown dd { font-weight: 400; color: var(--muted); }
 .screen-how { display: grid; gap: var(--ds-space-2); }
 .screen-how p { margin: 0; font-size: var(--text-small); }
+/* What the figures above are, said with them and in the hint's voice: it's there on every screen, so it isn't a warning. */
+.screen-how .screen-caveat { font-size: var(--text-hint); color: var(--muted); }
 .screen-parts { list-style: none; margin: 0; padding: 0; display: grid; border-bottom: 1px solid var(--line); }
 .screen-part { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--ds-space-3); align-items: center; padding: var(--ds-space-1) 0 var(--ds-space-3); border-top: 1px solid var(--line); }
 .screen-part-name { display: flex; align-items: center; gap: var(--ds-space-3); min-height: 44px; min-width: 0; color: var(--ink); cursor: pointer; }

@@ -134,6 +134,11 @@ test('at a desk, an LED screen is built in a sheet, lands on the quote with its 
   const figures = takes.getByRole('term')
   await expect(figures).toHaveText(['Panels', 'Size', 'Pixels', 'Weight', 'Power'])
   await expect(takes.getByRole('definition')).toHaveText(['6010 × 6', '5 × 3 m5:3', '1,280 × 768', '450 kgpanels only', '9.6 kW4 circuits of 16 A'])
+  // What hangs is said, and with it, ahead of the kit, that these are a first pass: read where the weights are, not after the list.
+  const how = takes.locator('.screen-how')
+  await expect(how).toContainText("Hangs from 3 points: about 583 kg in all, 194 kg a point if it's shared evenly.")
+  await expect(how).toContainText('A first pass to quote from, not a structural check')
+  expect(await how.evaluate((el) => !!(el.compareDocumentPosition(el.closest('section')!.querySelector('.screen-parts')!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true)
   const parts = takes.getByRole('list', { name: 'Kit to add to the quote' }).getByRole('listitem')
   await expect(parts.locator('.screen-part-name')).toHaveText(['Panels', 'Fly bars', 'Truss', 'Motors', 'Motor control', 'Processor', 'Power distro'])
   await expect(parts.nth(0)).toContainText(`60 × ${named('Absen NT 3.9')}`)
@@ -278,6 +283,8 @@ test('on a phone the builder is the whole screen, keeps what was typed when shut
   // A ground stack says how it stands, and what it couldn't hold to.
   await expect(takes.locator('.screen-how')).toContainText('Each stands against 3 truss uprights, 1.86 m apart, each on a base plate.')
   await expect(takes.locator('.screen-how')).toContainText('Outdoors it holds to a wind of about')
+  // The wind it holds to is a first pass, and says so in the same breath.
+  await expect(takes.locator('.screen-how')).toContainText('A first pass to quote from, not a structural check')
   const parts = takes.getByRole('list', { name: 'Kit to add to the quote' }).getByRole('listitem')
   await expect(parts.locator('.screen-part-name')).toHaveText(['Panels', 'Fly bars', 'Truss uprights', 'Base plates', 'Processor', 'Power distro'])
   await expect(parts.nth(0)).toContainText(`80 × ${named('Absen NT 3.9')}`)

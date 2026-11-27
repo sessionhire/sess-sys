@@ -68,9 +68,10 @@ Nothing in the stock list said how big a panel is, and the stock brought in from
 7. **Every part is ticked to begin with.** Kit left off a quote is the mistake that costs, so leaving a part off is
    the office's one tick, not the other way round. The panels can't be left off.
 8. **A ground stack says how it stands**: how many uprights and how far apart, that it stands without ballast indoors
-   and the wind it holds to outdoors, or the ballast each base plate wants. Ballast isn't put on the quote. Under
-   every answer: "A first pass to quote from, not a structural check: whoever rigs it checks what it hangs from or
-   stands on." How it was worked out is one fold below.
+   and the wind it holds to outdoors, or the ballast each base plate wants. Ballast isn't put on the quote. A hung
+   screen says its points and what each carries. Straight under either, ahead of the kit, so it's read with the
+   figures it speaks of: "A first pass to quote from, not a structural check: whoever rigs it checks what it hangs
+   from or stands on." How it was worked out is one fold, under the kit.
 9. **On the quote it is one line with its kit under it**, as a package is (ADR 0116): "LED screen 5 × 3 m, hung",
    with "10 panels wide by 6 high · 1,280 × 768 pixels" under its name, in a group called LED screen (ADR 0128). It
    has no price of its own: it comes to its kit, each line at its product's price for the job's days, and a product
