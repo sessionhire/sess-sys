@@ -1,3 +1,4 @@
+import { nameWithLength } from './cable-colours.ts'
 import { kitKey } from './kit-notes.ts'
 import { DEPARTMENT_LABELS, type Model } from './stock.ts'
 
@@ -14,6 +15,8 @@ type Findable = Pick<Model, 'id' | 'name' | 'department' | 'category'> & {
   aliases?: readonly string[]
   /** Its stock code (ADR 0074), found as another name is. */
   code?: string
+  /** A cable's length (ADR 0202): "xlr 10" finds the XLR 10 m long. */
+  lengthM?: number | null
 }
 
 export interface Found<P> {
@@ -44,7 +47,7 @@ export function findProducts<P extends Findable>(products: readonly P[], typed: 
   const words = key.split(' ')
   const out: { f: Found<P>; rank: number }[] = []
   for (const p of products) {
-    const name = kitKey(p.name)
+    const name = kitKey(nameWithLength(p))
     const others = [...(p.aliases ?? []), ...(p.code ? [p.code] : [])].map((a) => ({ a, key: kitKey(a) }))
     const meta = `${kitKey(p.category)} ${kitKey(DEPARTMENT_LABELS[p.department] ?? '')}`
     let rank: number
@@ -65,7 +68,7 @@ export function findProducts<P extends Findable>(products: readonly P[], typed: 
     }
     out.push({ f: via ? { product: p, via } : { product: p }, rank })
   }
-  return out.sort((a, b) => a.rank - b.rank || a.f.product.name.localeCompare(b.f.product.name)).map((x) => x.f)
+  return out.sort((a, b) => a.rank - b.rank || nameWithLength(a.f.product).localeCompare(nameWithLength(b.f.product), 'en-IE', { numeric: true })).map((x) => x.f)
 }
 
 /** The most a count typed before a product's name can be, as a quote line's How many (lineDraft's 10,000). */

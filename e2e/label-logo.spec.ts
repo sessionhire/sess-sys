@@ -138,7 +138,7 @@ test('the logo and a cable length with its colour go on cable labels', async ({ 
   // Its own length, given under Details, is the one used.
   await page.getByRole('tab', { name: 'Details' }).click()
   await page.getByRole('button', { name: 'Change details' }).click()
-  await page.getByLabel('Length, in m, for a cable').fill('15')
+  await page.getByLabel('Length, in metres').fill('15')
   await page.getByRole('button', { name: 'Save product' }).click()
   await page.getByRole('tab', { name: 'Cable labels' }).click()
   await expect(label.locator('.length')).toHaveText('15 m')

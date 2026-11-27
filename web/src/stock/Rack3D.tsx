@@ -1,4 +1,4 @@
-import { acrossAt, acrossFor, RACK_SIDE_LABELS, spanAcross, TAPE_COLOUR_SWATCHES, type ModelView, type RackAcross, type RackPart, type RackSide, type RackView, type SlotView } from '@sh/shared'
+import { acrossAt, acrossFor, RACK_SIDE_LABELS, spanAcross, TAPE_COLOUR_SWATCHES, type ModelView, type RackAcross, type RackPart, type RackSide, type RackView, type SlotView, nameWithLength, shownName } from '@sh/shared'
 import { useEffect, useRef, useState, type DragEvent } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
@@ -297,7 +297,7 @@ export default function Rack3D({ r, held, heldModel, mayChange, bad, onHold, onP
         new THREE.MeshStandardMaterial({ color: tone, roughness: 0.8, transparent: !!s.model?.dryHire, opacity: s.model?.dryHire ? 0.55 : 1 })
       )
       body.position.set(b.x, part === 'shelf' ? b.y - b.h / 2 + 2 : b.y, b.bodyZ)
-      const named = part === 'blank' && !s.label ? '' : `${s.label || s.model?.name || '?'}${s.model?.dryHire ? ' · dry hire' : ''}`
+      const named = part === 'blank' && !s.label ? '' : `${s.label || shownName(s.model) || '?'}${s.model?.dryHire ? ' · dry hire' : ''}`
       const src = productPhotoOf(s.model)
       if (src && !photos.current.has(src)) {
         const img = new Image()
@@ -416,7 +416,7 @@ export default function Rack3D({ r, held, heldModel, mayChange, bad, onHold, onP
           ref={box}
           className={`rack-3d-scene${held ? ' holding-one' : ''}`}
           role="img"
-          aria-label={`${r.model.name} in 3D: ${placed.length === 1 ? '1 thing' : `${placed.length} things`} on the rails${placed.length ? `: ${placed.map((s) => `${s.label || s.model?.name || '?'} at U${s.top}${acrossFor(s.model?.rackWidth).length ? ` ${s.across === 'middle' ? 'in the middle' : `on the ${s.across}`}` : ''} on the ${RACK_SIDE_LABELS[s.side].toLowerCase()}`).join(', ')}` : ''}. Front and back shows the same, to use with a keyboard.`}
+          aria-label={`${nameWithLength(r.model)} in 3D: ${placed.length === 1 ? '1 thing' : `${placed.length} things`} on the rails${placed.length ? `: ${placed.map((s) => `${s.label || shownName(s.model) || '?'} at U${s.top}${acrossFor(s.model?.rackWidth).length ? ` ${s.across === 'middle' ? 'in the middle' : `on the ${s.across}`}` : ''} on the ${RACK_SIDE_LABELS[s.side].toLowerCase()}`).join(', ')}` : ''}. Front and back shows the same, to use with a keyboard.`}
           onPointerDown={(e) => {
             down.current = { x: e.clientX, y: e.clientY }
           }}

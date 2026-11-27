@@ -12,6 +12,8 @@ import {
   type RackSide,
   type RackView,
   type SlotView,
+  nameWithLength,
+  shownName,
 } from '@sh/shared'
 import { useState, type CSSProperties, type DragEvent } from 'react'
 import { DRAG_TYPE, heldOf, type Held } from './rack-drag.ts'
@@ -72,7 +74,7 @@ export function DropSide({
   }
   const lit = (u: number) => hover && u >= hover.top && u < hover.top + hover.units
   return (
-    <figure className={`rack-elevation designer-side${held ? ' holding-one' : ''}`} aria-label={`${RACK_SIDE_LABELS[side]} of ${r.model.name}`}>
+    <figure className={`rack-elevation designer-side${held ? ' holding-one' : ''}`} aria-label={`${RACK_SIDE_LABELS[side]} of ${nameWithLength(r.model)}`}>
       <figcaption>{RACK_SIDE_LABELS[side]}</figcaption>
       <div className="rack-units" style={{ gridTemplateRows: `repeat(${size}, var(--rack-u))` }} onDragLeave={() => setHover(undefined)}>
         {Array.from({ length: size }, (_, i) => {
@@ -126,8 +128,8 @@ export function DropSide({
               className={`rack-thing ${thingClass(s)}${bad.has(s.id) ? ' bad' : ''}${s.pending ? ' is-pending' : ''}${s.model?.dryHire ? ' hired' : ''}${picked ? ' picked' : ''}`}
               style={thingStyle(s, units)}
               aria-pressed={picked}
-              aria-label={`${slotName(s)}${s.label && s.model ? ` (${s.model.name})` : ''}, ${unitsAt(s.top!, units)}${acrossFor(s.model?.rackWidth).length ? ` ${RACK_ACROSS_LABELS[s.across].toLowerCase()}` : ''} on the ${RACK_SIDE_LABELS[side].toLowerCase()}${s.group ? `, ${s.group}` : ''}${s.colour ? `, ${TAPE_COLOUR_LABELS[s.colour].toLowerCase()} tape` : ''}${picked ? ', picked up' : ''}`}
-              title={[s.model?.name, s.group, s.notes].filter(Boolean).join(' · ')}
+              aria-label={`${slotName(s)}${s.label && s.model ? ` (${nameWithLength(s.model)})` : ''}, ${unitsAt(s.top!, units)}${acrossFor(s.model?.rackWidth).length ? ` ${RACK_ACROSS_LABELS[s.across].toLowerCase()}` : ''} on the ${RACK_SIDE_LABELS[side].toLowerCase()}${s.group ? `, ${s.group}` : ''}${s.colour ? `, ${TAPE_COLOUR_LABELS[s.colour].toLowerCase()} tape` : ''}${picked ? ', picked up' : ''}`}
+              title={[shownName(s.model), s.group, s.notes].filter(Boolean).join(' · ')}
               onDragStart={(e) => {
                 e.dataTransfer.setData(DRAG_TYPE, `slot:${s.id}`)
                 e.dataTransfer.effectAllowed = 'move'
@@ -192,7 +194,7 @@ export function Loose({
           {slotName(s)}
         </b>
         {(s.model?.dryHire || s.group || (s.label && s.model)) && (
-          <small>{[s.label && s.model?.name, s.group, s.model?.dryHire && 'Dry hire'].filter(Boolean).join(' · ')}</small>
+          <small>{[s.label && shownName(s.model), s.group, s.model?.dryHire && 'Dry hire'].filter(Boolean).join(' · ')}</small>
         )}
       </button>
     </li>

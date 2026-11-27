@@ -3,6 +3,7 @@ import { inRacks } from './sync/quote-kit.ts'
 import { STOPPED, type ProjectStatus } from './jobs.ts'
 import { MAX_LINES, type QuoteLine } from './quotes.ts'
 import { DEPARTMENT_LABELS } from './stock.ts'
+import { nameWithLength } from './cable-colours.ts'
 
 /**
  * Start a quote from a past job (ADR 0115). A new quote for a client or a venue the company has worked for before
@@ -105,7 +106,7 @@ export function pastJobSuggestions(input: PastJobLines, p: Pricing): { s: Sugges
     if (!m) return undefined
     const q = quoted.get(modelId) ?? 0
     const n = Math.max(0, used(modelId) - (q ? 0 : (packaged.get(modelId) ?? 0)))
-    const base: Suggestion = { key: `past-${modelId}`, kind: 'kit', said: m.name, what: m.name, group: DEPARTMENT_LABELS[m.department], qty: Math.max(1, n || q), days: input.days, per: 'day', modelId: null, how: 'chosen', likely: [], cents: undefined, rate: null }
+    const base: Suggestion = { key: `past-${modelId}`, kind: 'kit', said: nameWithLength(m), what: nameWithLength(m), group: DEPARTMENT_LABELS[m.department], qty: Math.max(1, n || q), days: input.days, per: 'day', modelId: null, how: 'chosen', likely: [], cents: undefined, rate: null }
     let s = withModel(p, base, modelId)
     if (s.cents === undefined && charged !== undefined) s = { ...s, cents: charged }
     if (discountPct) s = { ...s, discountPct }

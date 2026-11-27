@@ -17,6 +17,7 @@ import {
   type PickList,
   type PickRow,
   type View,
+  shownName,
 } from '@sh/shared'
 import { useEffect, useState } from 'react'
 import { createPortal, flushSync } from 'react-dom'
@@ -37,7 +38,7 @@ import { departmentOfRow, heldText, rowDone, walk } from './pickRows.ts'
 
 const n = (x: number) => x.toLocaleString('en-IE')
 const printedOn = () => new Date().toLocaleDateString('en-IE', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })
-const rowName = (r: PickRow) => r.model?.name ?? 'A product since removed'
+const rowName = (r: PickRow) => shownName(r.model) ?? 'A product since removed'
 
 interface Props {
   view: View

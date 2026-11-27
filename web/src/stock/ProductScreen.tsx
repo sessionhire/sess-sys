@@ -12,6 +12,7 @@ import {
   newId,
   itemCode,
   normaliseNumber,
+  productNameKey,
   productCode,
   readCode,
   parseEuro,
@@ -25,6 +26,8 @@ import {
   type ModelView,
   type View,
   type WarehouseView,
+  nameWithLength,
+  shownName,
 } from '@sh/shared'
 import { useRef, useState, type FormEvent } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
@@ -62,6 +65,7 @@ import { CableLabels } from './CableLabels.tsx'
 import { ProductLabels } from './Labels.tsx'
 import { STOCK } from '../Up.tsx'
 import { pctText, pctTyped } from '../MarginTargetCard.tsx'
+import { asksLength, LengthFact, LengthField } from './CableLength.tsx'
 import { caseLabel, RackCard, sizeFrom, SizeFields, sizeLabel, sizeTypedOf, suppliersOf, weightPowerLabel, whoseFrom, WhoseFields, whoseTypedOf } from './Racks.tsx'
 
 /**
@@ -81,7 +85,7 @@ export function ProductScreen({ view, id, part: asked, bare, inSheet }: { view: 
   const w = view.warehouse
   const m = w.models.find((x) => x.id === id)
   const mistake = w.mistakes.get(id)
-  const up = { steps: [STOCK], here: m?.name }
+  const up = { steps: [STOCK], here: shownName(m) }
   const faults = view.faults.ofModel(id)
   const showsFaults = !!m && (m.tracking === 'bulk' || m.countedTotal > 0 || faults.length > 0)
   // Dry hire stock (ADR 0075) has none of its own to list.
@@ -112,7 +116,7 @@ export function ProductScreen({ view, id, part: asked, bare, inSheet }: { view: 
       up={up}
       bare={bare}
       picture={<Thumb icon={kitIcon(m)} size="large" />}
-      heading={m.name}
+      heading={nameWithLength(m)}
       badge={<Pending pending={m.pending} />}
       sub={<p>{[DEPARTMENT_LABELS[m.department], m.category, amountLabel(m)].filter(Boolean).join(' · ')}</p>}
     >
@@ -209,6 +213,7 @@ function Summary({ m, w, view }: { m: ModelView; w: WarehouseView; view: View })
             <dd>{m.aliases.join(', ')}</dd>
           </div>
         )}
+        <LengthFact m={m} models={w.models} mayChange={mayChange} />
         <div>
           <dt>Department</dt>
           <dd>{DEPARTMENT_LABELS[m.department]}</dd>
@@ -252,7 +257,7 @@ function Summary({ m, w, view }: { m: ModelView; w: WarehouseView; view: View })
               {racksUsing.map((r, i) => (
                 <span key={r.model.id}>
                   {i > 0 && ', '}
-                  <a href={`#stock/product/${r.model.id}`}>{r.model.name}</a>
+                  <a href={`#stock/product/${r.model.id}`}>{nameWithLength(r.model)}</a>
                 </span>
               ))}
               {m.racked > 0 && ` · ${m.racked.toLocaleString('en-IE')} built into racks, which go out with them`}
@@ -418,6 +423,7 @@ function EditProduct({ m, w, view, onDone }: { m: ModelView; w: WarehouseView; v
   })
   const [size, setSize] = useState(sizeTypedOf(m))
   const [whose, setWhose] = useState(whoseTypedOf(m))
+  const cable = !(f.isRack && f.isCase) && asksLength(f.name, f.category, size.length)
   const { run, error, refuse } = useAct()
   const save = (e: FormEvent) => {
     e.preventDefault()
@@ -426,8 +432,6 @@ function EditProduct({ m, w, view, onDone }: { m: ModelView; w: WarehouseView; v
     const aliases = aliasesOf(f.aliases, name)
     if (aliases.length > MOST_ALIASES) return refuse(`Up to ${MOST_ALIASES} other names, please.`)
     if (aliases.some((a) => a.length > 100)) return refuse('Another name can be up to 100 letters.')
-    const taken = w.models.find((x) => x.id !== m.id && x.name.trim().toLowerCase() === name.toLowerCase())
-    if (taken) return refuse(`There's already a product called ${taken.name}.`)
     const value = parseEuro(f.value)
     if (value.reason !== undefined) return refuse(value.reason)
     const valueCents = value.cents
@@ -447,6 +451,9 @@ function EditProduct({ m, w, view, onDone }: { m: ModelView; w: WarehouseView; v
     if (Number.isNaN(patMonths) || Number.isNaN(liftingMonths)) return refuse(`How often is a whole number of months, from 1 to ${MAX_MONTHS}, or blank for never.`)
     const sized = sizeFrom(size, w.models, m.id, f.isRack && f.isCase && f.tracking === 'serialised')
     if (!sized.size) return refuse(sized.reason)
+    // A name and a length together make a product (ADR 0202): "XLR" 5 m long and "XLR" 10 m long are two.
+    const taken = w.models.find((x) => x.id !== m.id && productNameKey(x) === productNameKey({ name, lengthM: sized.size.lengthM }))
+    if (taken) return refuse(`There's already a product called ${nameWithLength(taken)}.`)
     const owned = whoseFrom(whose)
     if (!owned.whose) return refuse(owned.reason)
     if (owned.whose.dryHire && !m.dryHire && (m.items.length > 0 || m.countedTotal > 0))
@@ -454,7 +461,7 @@ function EditProduct({ m, w, view, onDone }: { m: ModelView; w: WarehouseView; v
     const isRack = f.isRack && f.isCase && numbered
     if (!isRack && m.isRack && (view.racks.of(m.id)?.slots.length ?? 0) > 0) return refuse(`${m.name} has a layout. Take everything out of it first.`)
     const inRacks = view.racks.using(m.id)
-    if (isRack && !m.isRack && inRacks.length) return refuse(`${m.name} is in the layout of ${inRacks.map((r) => r.model.name).join(', ')}. Take it out of that first.`)
+    if (isRack && !m.isRack && inRacks.length) return refuse(`${m.name} is in the layout of ${inRacks.map((r) => nameWithLength(r.model)).join(', ')}. Take it out of that first.`)
     // Only what changed, so two people changing different things both keep theirs.
     const next = {
       name,
@@ -483,6 +490,7 @@ function EditProduct({ m, w, view, onDone }: { m: ModelView; w: WarehouseView; v
       <label className="wide">
         Name <input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} required />
       </label>
+      {cable && <LengthField name={f.name} length={size.length} onChange={(n) => (setF({ ...f, name: n.name }), setSize({ ...size, length: n.length }))} />}
       <label className="wide">
         Other names it goes by
         <input
@@ -518,7 +526,7 @@ function EditProduct({ m, w, view, onDone }: { m: ModelView; w: WarehouseView; v
         </label>
       )}
       {!(f.isRack && f.isCase) && <WhoseFields f={whose} onChange={setWhose} suppliers={suppliersOf(view)} />}
-      <SizeFields f={size} onChange={setSize} rack={f.isRack && f.isCase} />
+      <SizeFields f={size} onChange={setSize} rack={f.isRack && f.isCase} lengthAbove={cable} />
       {f.tracking === 'serialised' && (
         <>
           <label>
@@ -632,8 +640,8 @@ function AddItem({ m, w }: { m: ModelView; w: WarehouseView }) {
     if (number && other) {
       return refuse(
         other.number === number
-          ? `${number} is already in use (${other.model?.name ?? 'another item'}).`
-          : `${number} was used before (${other.model?.name ?? 'another item'}, now ${numberLabel(other)}), and a number is never used twice. Use another label.`
+          ? `${number} is already in use (${shownName(other.model) ?? 'another item'}).`
+          : `${number} was used before (${shownName(other.model) ?? 'another item'}, now ${numberLabel(other)}), and a number is never used twice. Use another label.`
       )
     }
     const problem = whereProblem(f.where, w)

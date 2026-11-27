@@ -1,4 +1,4 @@
-import { MAX_CASE_DEPTH, type Asset, type LabelRun, type Model, type Place, type Stock, type Where } from '@sh/shared'
+import { MAX_CASE_DEPTH, nameWithLength, productNameKey, type Asset, type LabelRun, type Model, type Place, type Stock, type Where } from '@sh/shared'
 import type { Queryable } from '../db.ts'
 
 /** Reading warehouse rows back as the records devices see (ADR 0013). */
@@ -94,6 +94,21 @@ export async function nameTaken(q: Queryable, table: 'models' | 'places', name: 
     [name, except]
   )
   return rows[0]?.name
+}
+
+/**
+ * Which other product has this name and length (ADR 0202), as it's shown: "XLR" 10 m long and "XLR" 5 m long are two
+ * products, and "XLR 10m" is the same as "XLR" 10 m long. Only names that could match are read, by their first word.
+ */
+export async function productTaken(q: Queryable, m: { name: string; lengthM: number | null }, except: string) {
+  const key = productNameKey(m)
+  const first = key.split(/[\s|]/)[0] ?? ''
+  const { rows } = await q.query<{ name: string; length_m: number | null }>(
+    `SELECT name, length_m FROM models WHERE id <> $1 AND NOT mistake AND lower(name) LIKE '%' || $2 || '%'`,
+    [except, first.replace(/[\\%_]/g, '\\$&')]
+  )
+  const hit = rows.find((r) => productNameKey({ name: r.name, lengthM: r.length_m === null ? null : Number(r.length_m) }) === key)
+  return hit && nameWithLength({ name: hit.name, lengthM: hit.length_m === null ? null : Number(hit.length_m) })
 }
 
 /** Which other product has this stock code, whatever the capitals (ADR 0074). */

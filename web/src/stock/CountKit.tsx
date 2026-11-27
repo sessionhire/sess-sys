@@ -1,4 +1,4 @@
-import { MAX_QTY, RETIRED_LABELS, type AssetView, type CountDraft, type CountItem, type View } from '@sh/shared'
+import { MAX_QTY, RETIRED_LABELS, type AssetView, type CountDraft, type CountItem, type View, shownName } from '@sh/shared'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Refusal, useAct } from '../act.tsx'
 import { Empty } from '../Empty.tsx'
@@ -32,7 +32,7 @@ export function Numbers({ title, items, view, each }: { title?: string; items: r
     <div className="group">
       {title && <h3 className="group">{title}</h3>}
       {[...groups.values()].map((list) => (
-        <NumberGroup key={list[0]!.modelId} items={list} fold={fold} name={list[0]!.model?.name ?? 'A product since removed'} said={`· ${list.length.toLocaleString('en-IE')} ${each}`} />
+        <NumberGroup key={list[0]!.modelId} items={list} fold={fold} name={shownName(list[0]!.model) ?? 'A product since removed'} said={`· ${list.length.toLocaleString('en-IE')} ${each}`} />
       ))}
     </div>
   )

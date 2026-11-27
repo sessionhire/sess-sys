@@ -2,6 +2,7 @@ import { crewFill, type JobView } from './sync/jobs-view.ts'
 import { QUOTE_SHOWS, type QuoteRow, type QuoteShow } from './sync/money-view.ts'
 import type { PersonView } from './sync/crew-view.ts'
 import { DEPARTMENT_LABELS, type Department } from './stock.ts'
+import { nameWithLength } from './cable-colours.ts'
 import { KIND_LABELS, PROJECT_KINDS, PROJECT_STATUSES, STATUS_LABELS, STOPPED } from './jobs.ts'
 import { JOB_STAGES, STAGE_LABELS } from './steps.ts'
 import { stageHolder, type JobSteps } from './sync/steps-view.ts'
@@ -401,11 +402,12 @@ export interface ProductForList {
   department: Department
   total: number
   dryHire?: boolean
+  lengthM?: number | null
 }
 
 export const PRODUCT_SORTS: readonly ListSort<ProductForList>[] = [
-  { key: 'name', label: 'Name, A to Z', compare: (a, b) => byName(a.name, b.name) },
-  { key: 'category', label: 'Category', compare: (a, b) => lastIfNone(a.category.trim(), b.category.trim(), byName) || byName(a.name, b.name) },
+  { key: 'name', label: 'Name, A to Z', compare: (a, b) => byName(nameWithLength(a), nameWithLength(b)) },
+  { key: 'category', label: 'Category', compare: (a, b) => lastIfNone(a.category.trim(), b.category.trim(), byName) || byName(nameWithLength(a), nameWithLength(b)) },
   { key: 'most', label: 'Most in stock first', compare: (a, b) => b.total - a.total },
   { key: 'fewest', label: 'Fewest in stock first', compare: (a, b) => a.total - b.total },
   { key: 'department', label: 'Department', compare: (a, b) => byName(DEPARTMENT_LABELS[a.department], DEPARTMENT_LABELS[b.department]) },

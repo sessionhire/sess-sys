@@ -24,6 +24,8 @@ import {
   type RackView,
   type SlotView,
   type View,
+  nameWithLength,
+  shownName,
 } from '@sh/shared'
 import { useState, type FormEvent } from 'react'
 import { Refusal, useAct } from '../act.tsx'
@@ -244,7 +246,7 @@ export function sizeFrom(f: SizeTyped, models: readonly ModelView[], self?: stri
  * ticked as rack-mount to give its size in a rack (ADR 0076); a rack gives
  * the room in it and its case from the outside.
  */
-export function SizeFields({ f, onChange, rack }: { f: SizeTyped; onChange: (f: SizeTyped) => void; rack: boolean }) {
+export function SizeFields({ f, onChange, rack, lengthAbove }: { f: SizeTyped; onChange: (f: SizeTyped) => void; rack: boolean; lengthAbove?: boolean }) {
   const field = (key: keyof SizeTyped, label: string, placeholder: string, mode: 'numeric' | 'decimal' = 'numeric') => (
     <label>
       {label}
@@ -279,7 +281,8 @@ export function SizeFields({ f, onChange, rack }: { f: SizeTyped; onChange: (f: 
         <>
           {field('weight', 'Weight, in kg', 'e.g. 12.5', 'decimal')}
           {field('power', 'Power at most, in watts', 'e.g. 1200')}
-          {field('length', 'Length, in m, for a cable', 'e.g. 10', 'decimal')}
+          {/* A cable's length is asked for under its name (ADR 0202); here only for anything else that has one. */}
+          {!lengthAbove && field('length', 'Length, in m', 'e.g. 10', 'decimal')}
           <label className="choice wide">
             <input type="checkbox" checked={f.rackMount} onChange={(e) => onChange({ ...f, rackMount: e.target.checked })} />
             <span>
@@ -414,7 +417,7 @@ export function RackCard({ view, r }: { view: View; r: RackView }) {
                   <p>
                     {s.qty > 1 && `${s.qty.toLocaleString('en-IE')} × `}
                     {s.label && `${s.label}: `}
-                    {s.model ? <a href={`#stock/product/${s.model.id}`}>{s.model.name}</a> : 'A product no longer listed'}
+                    {s.model ? <a href={`#stock/product/${s.model.id}`}>{nameWithLength(s.model)}</a> : 'A product no longer listed'}
                     {s.group && ` · ${s.group}`}
                     {s.model?.dryHire && ` · Dry hire${s.model.supplier ? ` from ${s.model.supplier}` : ''}`}
                     {s.notes && ` · ${s.notes}`}
@@ -423,7 +426,7 @@ export function RackCard({ view, r }: { view: View; r: RackView }) {
                 <div className="side">
                   <Pending pending={s.pending} />
                   {mayChange && (
-                    <button type="button" className="link" onClick={() => remove(s)} aria-label={`Take ${s.model?.name ?? 'it'} out of the layout`}>
+                    <button type="button" className="link" onClick={() => remove(s)} aria-label={`Take ${shownName(s.model) ?? 'it'} out of the layout`}>
                       Take out
                     </button>
                   )}
@@ -450,7 +453,7 @@ export function Elevation({ r, side }: { r: RackView; side: RackSide }) {
   const lowest = Math.max(r.model.units ?? 0, ...placed.map((s) => s.top! + (s.model?.units ?? 1) - 1), 1)
   const bad = new Set(r.layout.problems.map((p) => p.slotId))
   return (
-    <figure className="rack-elevation" aria-label={`${RACK_SIDE_LABELS[side]} of ${r.model.name}`}>
+    <figure className="rack-elevation" aria-label={`${RACK_SIDE_LABELS[side]} of ${nameWithLength(r.model)}`}>
       <figcaption>{RACK_SIDE_LABELS[side]}</figcaption>
       <div className="rack-units" style={{ gridTemplateRows: `repeat(${lowest}, var(--rack-u))` }}>
         {Array.from({ length: lowest }, (_, i) => (
@@ -465,7 +468,7 @@ export function Elevation({ r, side }: { r: RackView; side: RackSide }) {
               key={s.id}
               className={`rack-thing ${thingClass(s)}${bad.has(s.id) ? ' bad' : ''}${s.pending ? ' is-pending' : ''}${s.model?.dryHire ? ' hired' : ''}`}
               style={thingStyle(s, units)}
-              title={[s.model?.name, s.group].filter(Boolean).join(' · ')}
+              title={[shownName(s.model), s.group].filter(Boolean).join(' · ')}
             >
               {s.model?.rackPart === 'blank' && !s.label ? '' : <span className="thing-name">{slotName(s)}</span>}
             </span>
@@ -560,7 +563,7 @@ function Built({ r }: { r: RackView }) {
     <>
       <h3 className="group">Built</h3>
       {r.built.length === 0 ? (
-        <p className="hint">None built yet. Label a rack case as {r.model.name} under Items below, then put the kit in it.</p>
+        <p className="hint">None built yet. Label a rack case as {nameWithLength(r.model)} under Items below, then put the kit in it.</p>
       ) : (
         <ul className="item-list">
           {r.built.map((b) => {
@@ -597,7 +600,7 @@ export function BuiltRackCheck({ view, item }: { view: View; item: AssetView }) 
       </Heading>
       {r.slots.length === 0 ? (
         <p className="hint">
-          <a href={`#stock/product/${r.model.id}`}>{r.model.name}</a> has nothing laid out yet, so there's nothing to check it against.
+          <a href={`#stock/product/${r.model.id}`}>{nameWithLength(r.model)}</a> has nothing laid out yet, so there's nothing to check it against.
         </p>
       ) : c.tone === 'ok' ? (
         <>

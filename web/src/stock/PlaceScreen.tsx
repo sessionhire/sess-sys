@@ -1,4 +1,4 @@
-import { dayLabel, plural, type AssetView, type PlaceView, type View, type WarehouseView } from '@sh/shared'
+import { dayLabel, plural, type AssetView, type PlaceView, type View, type WarehouseView, nameWithLength, shownName } from '@sh/shared'
 import { useState, type FormEvent } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
 import { Empty } from '../Empty.tsx'
@@ -126,7 +126,7 @@ function Here({ p, w }: { p: PlaceView; w: WarehouseView }) {
     if (a.model?.isCase) continue
     groups.set(a.modelId, [...(groups.get(a.modelId) ?? []), a])
   }
-  const byName = [...groups.values()].sort((a, b) => (a[0]!.model?.name ?? '').localeCompare(b[0]!.model?.name ?? ''))
+  const byName = [...groups.values()].sort((a, b) => (shownName(a[0]!.model) ?? '').localeCompare(shownName(b[0]!.model) ?? ''))
   const folded = p.items.length - cases.length > NUMBERS_FOLD_PAST
   const empty = p.items.length === 0 && p.counted.length === 0
   // What a count or a move of what's counted here just did.
@@ -142,7 +142,7 @@ function Here({ p, w }: { p: PlaceView; w: WarehouseView }) {
             <li key={c.id}>
               <a className="item-row" href={`#stock/item/${c.id}`}>
                 <div>
-                  <b>{numberLabel(c)}</b> {c.model?.name}
+                  <b>{numberLabel(c)}</b> {shownName(c.model)}
                   <p>{c.items.length > 0 || c.counted.length > 0 ? contentsLabel(c) : 'Empty'}</p>
                 </div>
                 <Pending pending={c.pending} />
@@ -168,7 +168,7 @@ function Here({ p, w }: { p: PlaceView; w: WarehouseView }) {
       })}
       {p.counted.map((s) => (
         <CountRow key={s.id} s={s} w={w} onSaid={setSaid}>
-          × {s.model ? <a href={`#stock/product/${s.model.id}`}>{s.model.name}</a> : 'a product since removed'}
+          × {s.model ? <a href={`#stock/product/${s.model.id}`}>{nameWithLength(s.model)}</a> : 'a product since removed'}
           {s.model?.tracking === 'serialised' && <small>, not labelled yet</small>}
         </CountRow>
       ))}
@@ -189,7 +189,7 @@ function PutHere({ p, w }: { p: PlaceView; w: WarehouseView }) {
       button="Put it here"
       why={(item) => (item.placeId === p.id ? `${item.number} is here already.` : undefined)}
       to={{ placeId: p.id, caseId: null }}
-      done={(item) => `${item.number} (${item.model?.name ?? 'an item'}) is here now.`}
+      done={(item) => `${item.number} (${shownName(item.model) ?? 'an item'}) is here now.`}
     />
   )
 }

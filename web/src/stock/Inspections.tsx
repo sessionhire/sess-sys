@@ -12,6 +12,7 @@ import {
   type View,
   STANDING_HEADINGS,
   listHeading,
+  shownName,
 } from '@sh/shared'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useScanKeys } from '../scanKeys.ts'
@@ -104,7 +105,7 @@ export function InspectionsCard({ view, a }: { view: View; a: AssetView }) {
       <Heading icon="inspection">Inspections</Heading>
       {dues.length === 0 && (
         <p className="hint">
-          {a.model?.name ?? 'Its product'} doesn't say how often its items need testing. Set it with Change details on{' '}
+          {shownName(a.model) ?? 'Its product'} doesn't say how often its items need testing. Set it with Change details on{' '}
           {a.model ? <a href={`#stock/product/${a.model.id}`}>its page</a> : 'its page'}.
         </p>
       )}
@@ -280,7 +281,7 @@ export function InspectionsDue({ view, recent }: { view: View; recent?: Readonly
       <a className="job-row" href={`#stock/item/${d.asset.id}`}>
         <div>
           <b>
-            {numberLabel(d.asset)} {d.asset.model?.name}
+            {numberLabel(d.asset)} {shownName(d.asset.model)}
           </b>
           <p>{dueText(d)}</p>
         </div>
@@ -322,7 +323,7 @@ export function InspectionsDue({ view, recent }: { view: View; recent?: Readonly
                 <a className="job-row" href={`#stock/item/${c.asset.id}`}>
                   <div>
                     <b>
-                      {numberLabel(c.asset)} {c.asset.model?.name}
+                      {numberLabel(c.asset)} {shownName(c.asset.model)}
                     </b>
                     <p>
                       {c.certificate.title} {c.state === 'expired' ? 'ran out on' : 'runs out'} {dateLabel(c.certificate.expires!)}
@@ -391,7 +392,7 @@ interface Held {
 }
 
 /** "SH-000123 d&b Y10P". */
-const itemName = (a: AssetView) => [numberLabel(a), a.model?.name].filter(Boolean).join(' ')
+const itemName = (a: AssetView) => [numberLabel(a), shownName(a.model)].filter(Boolean).join(' ')
 
 /**
  * Testing a batch: scan each item as it passes. Each pass sits at the top
@@ -651,7 +652,7 @@ function ProductsFold({ items, title, hint }: { items: readonly AssetView[]; tit
   for (const a of items) {
     const was = byModel.get(a.modelId)
     if (was) was.n++
-    else byModel.set(a.modelId, { id: a.modelId, name: a.model?.name ?? 'A product', n: 1 })
+    else byModel.set(a.modelId, { id: a.modelId, name: shownName(a.model) ?? 'A product', n: 1 })
   }
   const products = [...byModel.values()].sort((a, b) => b.n - a.n || a.name.localeCompare(b.name))
   return (

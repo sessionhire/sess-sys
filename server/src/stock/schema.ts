@@ -458,6 +458,12 @@ const MIGRATIONS: string[] = [
   SELECT entity, entity_id, 'put', data FROM (SELECT * FROM models_now UNION ALL SELECT * FROM assets_now UNION ALL SELECT * FROM runs_now) x
    ORDER BY entity, entity_id;
   `,
+  // A name and a length together make a product (ADR 0202): "XLR" 5 m long and "XLR" 10 m long are two. The app
+  // checks the name without its length too ("XLR 10m" is "XLR" 10 m long); the database keeps the plain pair apart.
+  `
+  DROP INDEX IF EXISTS models_name;
+  CREATE UNIQUE INDEX IF NOT EXISTS models_name ON models (lower(name), coalesce(length_m, 0)) WHERE NOT mistake;
+  `,
 ]
 
 export const STOCK: Module = { versionTable: 'stock_schema_version', migrations: MIGRATIONS }

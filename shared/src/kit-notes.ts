@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { needed, text, whole } from './plain.ts'
+import { nameWithLength } from './cable-colours.ts'
 import { DEPARTMENTS, MAX_QTY, type Department, type Model } from './stock.ts'
 
 /**
@@ -217,7 +218,7 @@ export interface KitMatch {
 }
 
 /** A product as matched: its other names (ADR 0070) are matched as its name is. */
-type Product = Pick<Model, 'id' | 'name' | 'department'> & { aliases?: readonly string[] }
+type Product = Pick<Model, 'id' | 'name' | 'department'> & { aliases?: readonly string[]; lengthM?: number | null }
 
 /** Pairs of letters, for a forgiving comparison. */
 function pairs(s: string): Map<string, number> {
@@ -251,7 +252,8 @@ interface Indexed {
 }
 
 function indexOf(p: Product, other?: string): Indexed {
-  const key = kitKey(other ?? p.name)
+  // A cable is matched by its name and length (ADR 0202): "XLR 10m" in the notes is the XLR 10 m long.
+  const key = kitKey(other ?? nameWithLength(p))
   const words = key.split(' ').filter(Boolean)
   const squashed = squash(key)
   return {
@@ -351,7 +353,7 @@ let matchers: { sig: string; matcher: KitMatcher }[] = []
 
 /** The matcher for this stock list, made once. */
 export function matcherFor(products: readonly Product[]): KitMatcher {
-  const sig = products.map((p) => `${p.id}\u0001${p.name}\u0001${p.department}\u0001${(p.aliases ?? []).join('\u0003')}`).join('\u0002')
+  const sig = products.map((p) => `${p.id}\u0001${nameWithLength(p)}\u0001${p.department}\u0001${(p.aliases ?? []).join('\u0003')}`).join('\u0002')
   const found = matchers.find((m) => m.sig === sig)
   if (found) return found.matcher
   const matcher = new KitMatcher(products)

@@ -277,6 +277,15 @@ describe('products and places', () => {
     expect(await refused(app, 'model.create', product('D&B y10p'))).toBe("There's already a product called d&b Y10P.")
     expect(await refused(app, 'place.upsert', place('bay a3'))).toBe("There's already a place called Bay A3.")
     expect(await refused(app, 'model.update', { id: xlr.id, name: 'd&b Y10P ' })).toBe("There's already a product called d&b Y10P.")
+    // A name and a length make a product (ADR 0202): "XLR" 10 m long is the XLR 10 m already here; 5 m long is another.
+    expect(await refused(app, 'model.create', product('xlr', { lengthM: 10 }))).toBe("There's already a product called XLR 10 m.")
+    const short = product('XLR', { lengthM: 5 })
+    await ok(app, 'model.create', short)
+    expect(await refused(app, 'model.update', { id: short.id, lengthM: 10 })).toBe("There's already a product called XLR 10 m.")
+    // And the length taken out of the name into its field is still the same product to the stock list.
+    await ok(app, 'model.update', { id: short.id, name: 'XLR 5m', lengthM: null })
+    expect(await refused(app, 'model.create', product('XLR', { lengthM: 5 }))).toBe("There's already a product called XLR 5m.")
+    await ok(app, 'model.update', { id: short.id, name: 'XLR', lengthM: 5 })
 
     const a = item(y10p.id, { placeId: bay.id })
     await ok(app, 'asset.add', a)

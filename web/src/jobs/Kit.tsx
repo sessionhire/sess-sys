@@ -26,6 +26,8 @@ import {
   type View,
   kitLetGo,
   type QuoteHold,
+  shownName,
+  nameWithLength,
 } from '@sh/shared'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Confirm, Refusal, useAct } from '../act.tsx'
@@ -59,7 +61,7 @@ export function forLabel(l: KitLineView): string {
   return `Whole job · ${l.job?.span ? spanLabel(l.job.span) : 'no dates yet'}`
 }
 
-export const productName = (l: KitLineView) => l.model?.name ?? 'A product since removed'
+export const productName = (l: KitLineView) => shownName(l.model) ?? 'A product since removed'
 
 /** "Nissan", "Nissan and Fuel", "Nissan, Fuel and Tour". */
 const inWords = (parts: string[]) => (parts.length <= 1 ? (parts[0] ?? '') : `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}`)
@@ -733,7 +735,7 @@ function AddKit({ job, view, lines }: { job: JobView; view: View; lines: readonl
         ? client.mutate('kit.update', { id: already.id, qty: already.qty + n })
         : client.mutate('kit.add', { id: newId(), projectId: job.id, phaseId, modelId: m.id, qty: n, subhireQty: 0, supplier: '', notes: '' })
     ).then((ok) => {
-      if (ok) setAdded(already ? `Now ${already.qty + n} × ${m.name} ${days}.` : `Added ${n} × ${m.name} ${days}.`)
+      if (ok) setAdded(already ? `Now ${already.qty + n} × ${nameWithLength(m)} ${days}.` : `Added ${n} × ${nameWithLength(m)} ${days}.`)
       else setF((now) => (now === cleared ? f : now))
     })
   }
