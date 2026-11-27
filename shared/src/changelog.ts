@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.240.0',
+    date: '2026-11-27',
+    title: 'Add products with a laptop’s webcam',
+    what: "On a laptop or desktop with a camera, Stock › Add products now has Use the webcam beside Upload photos. It shows the camera's picture with Take photo under it: take the item, then its maker's label, and Look this item up sends them to Claude together. The camera stays on for the next item. An item being checked can have its label photographed the same way. Phones are as before: the one button opens the camera.",
+    prs: [457],
+  },
+  {
     version: '1.239.1',
     date: '2026-11-27',
     title: 'Clear a No on Google Calendar from someone booked',

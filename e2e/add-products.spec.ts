@@ -151,3 +151,91 @@ test('a photo read as kit already on the list adds nothing; a typed item is read
   await page.getByRole('searchbox').first().fill('Hurricane')
   await expect(page.getByText('Chauvet Hurricane Haze 4D').first()).toBeVisible()
 })
+
+test('on a laptop, the webcam takes the item and its label, and one more for the label of an item being checked', async ({ browser, request }) => {
+  expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
+  expect((await request.post('/api/data/made-up')).ok()).toBe(true)
+  const page = await (await browser.newContext({ viewport: { width: 1280, height: 860 }, deviceScaleFactor: shots ? 2 : 1 })).newPage()
+  page.on('pageerror', (e) => console.log('PAGEERROR', e.message, e.stack))
+  // A webcam made of a canvas, redrawn all the time as a camera's picture is.
+  await page.addInitScript(() => {
+    const canvas = document.createElement('canvas')
+    canvas.width = 1280
+    canvas.height = 720
+    const g = canvas.getContext('2d')!
+    let n = 0
+    const draw = () => {
+      g.fillStyle = '#4a5058'
+      g.fillRect(0, 0, 1280, 720)
+      g.fillStyle = '#d8d8d8'
+      g.beginPath()
+      g.arc(640, 330, 160 + (n++ % 10), 0, Math.PI * 2)
+      g.fill()
+    }
+    setInterval(draw, 50)
+    draw()
+    const listeners = new Set<() => void>()
+    Object.defineProperty(navigator, 'mediaDevices', {
+      value: {
+        getUserMedia: async () => canvas.captureStream(20),
+        enumerateDevices: async () => [{ kind: 'videoinput', deviceId: '', groupId: '', label: '' }],
+        addEventListener: (_: string, f: () => void) => listeners.add(f),
+        removeEventListener: (_: string, f: () => void) => listeners.delete(f),
+      },
+    })
+  })
+
+  await page.goto('/#admin/claude')
+  const toggle = page.getByRole('region', { name: 'Claude', exact: true }).getByRole('switch', { name: /Turn Claude on/ })
+  await toggle.click()
+  await expect(toggle).toBeChecked()
+  await page.goto('/#stock')
+  await expect(page.locator('.conn')).toHaveText('Up to date')
+  await page.goto('/#stock/add')
+
+  // A laptop's file field only opens the files, so the webcam is offered beside it.
+  await expect(page.getByRole('button', { name: 'Use the webcam' })).toBeVisible()
+  await expect(page.locator('.add-photo input[type=file]')).not.toHaveAttribute('capture')
+  await expect(page.getByText('Upload photos')).toBeVisible()
+  await page.getByRole('button', { name: 'Use the webcam' }).click()
+  const cam = page.getByRole('group', { name: 'Webcam' })
+  await expect(cam.getByRole('status')).toContainText('Hold the item up to the camera')
+  await expect(cam.getByRole('button', { name: 'Look this item up' })).toBeDisabled()
+
+  // The item, then its label: two photos for one item, either can be taken out again.
+  await cam.getByRole('button', { name: 'Take photo' }).click()
+  await expect(page.getByRole('list', { name: 'Photos of this item' }).getByRole('img')).toHaveCount(1)
+  await cam.getByRole('button', { name: 'Take photo' }).click()
+  await expect(page.getByRole('list', { name: 'Photos of this item' }).getByRole('img')).toHaveCount(2)
+  await expect(cam.getByRole('status')).toContainText('Two photos of this item')
+  if (shots) await page.locator('section.card').first().screenshot({ path: `${shots}/add-products-webcam-desk.png` })
+  await cam.getByRole('button', { name: 'Look this item up' }).click()
+  await expect(page.getByRole('list', { name: 'Photos of this item' })).toHaveCount(0)
+
+  // Read as the SM58; the camera stays on for the next item.
+  const item = page.locator('.check-item')
+  await expect(page.getByLabel(/^Name/)).toHaveValue('Shure SM58')
+  await expect(item.locator('.add-photos img')).toHaveCount(2)
+  await expect(cam.getByRole('button', { name: 'Take photo' })).toBeEnabled()
+
+  // One more of its label from the item being checked: the webcam there takes one and closes.
+  await item.getByRole('button', { name: 'Photograph its label' }).click()
+  const itemCam = item.getByRole('group', { name: 'Webcam' })
+  await expect(itemCam.getByRole('status')).toContainText("Hold its maker's label up to the camera.")
+  await itemCam.getByRole('button', { name: 'Take photo' }).click()
+  await expect(item.locator('.add-photos img')).toHaveCount(3)
+  await expect(item.getByRole('group', { name: 'Webcam' })).toHaveCount(0)
+  // Three is the most, so there's no more to take.
+  await expect(item.getByRole('button', { name: 'Photograph its label' })).toHaveCount(0)
+
+  await cam.getByRole('button', { name: 'Close camera' }).click()
+  await expect(page.getByRole('button', { name: 'Use the webcam' })).toBeVisible()
+})
+
+test('on a phone, no webcam button: the one field opens the camera', async ({ browser }) => {
+  const page = await (await browser.newContext({ viewport: phoneSize, hasTouch: true, isMobile: true })).newPage()
+  await page.goto('/#stock/add')
+  await expect(page.getByRole('heading', { name: 'Photograph an item' })).toBeVisible()
+  await expect(page.locator('.add-photo input[type=file]')).toHaveAttribute('capture', 'environment')
+  await expect(page.getByRole('button', { name: 'Use the webcam' })).toHaveCount(0)
+})
