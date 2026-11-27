@@ -146,4 +146,12 @@ describe('pastJobSuggestions', () => {
     ])
     expect(suggestionLine(r[0]!.s, 'x')).toMatchObject({ packageId: 'mics', includes: '4 × Shure SM58', unitCents: 5_000 })
   })
+  it('brings an LED screen as the kit that made it, not as a line with no price (ADR 0207)', () => {
+    const screen = q({ id: 'screen', what: 'LED screen 5 × 3 m, hung', group: 'LED screen', screen: { panel: 'sm58', cols: 10, rows: 6, stands: 'hung' } } as Partial<QuoteLine>)
+    const r = pastJobSuggestions(
+      { quoteLines: [screen, q({ what: 'Shure SM58', modelId: 'sm58', qty: 60, unitCents: 800, group: 'LED screen', under: 'screen' })], kit: [{ modelId: 'sm58', listed: 60, subhired: 0, wentOut: 60 }], scanned: true, days: 1, pastDays: 1 },
+      pricing
+    )
+    expect(r.map((x) => [x.s.what, x.s.qty, x.s.note])).toEqual([['Shure SM58', 60, 'As quoted']])
+  })
 })

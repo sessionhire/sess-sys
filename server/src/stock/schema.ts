@@ -468,6 +468,11 @@ const MIGRATIONS: string[] = [
   `
   ALTER TABLE models ADD COLUMN IF NOT EXISTS to_check boolean NOT NULL DEFAULT false;
   `,
+  // An LED panel's size and pixels (ADR 0207), which the screen builder on a quote works a screen out from: one record,
+  // read and written whole, so it's kept as it is given. Null for everything that isn't a panel.
+  `
+  ALTER TABLE models ADD COLUMN IF NOT EXISTS panel jsonb;
+  `,
 ]
 
 export const STOCK: Module = { versionTable: 'stock_schema_version', migrations: MIGRATIONS }

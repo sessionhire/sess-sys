@@ -110,6 +110,17 @@ describe("a quote's own link for the client (ADR 0121)", () => {
     expect((await app.inject({ url: `/q/${token}` })).body).toContain('Accept the quote')
   })
 
+  it('shows an LED screen as one line that comes to its kit, with its panels and pixels and what makes it (ADR 0207)', async () => {
+    const { app, quote } = await sent()
+    const screen = line({ id: 'screen', what: 'LED screen 5 × 3 m, hung', group: 'LED screen', qty: 1, unitCents: 0, includes: '10 panels wide by 6 high · 1,280 × 768 pixels', screen: { panel: 'absen', cols: 10, rows: 6, stands: 'hung' } })
+    const kit = [line({ what: 'Absen NT 3.9', group: 'LED screen', qty: 60, unitCents: 2000, under: 'screen' }), line({ what: 'Absen fly bar', group: 'LED screen', qty: 10, unitCents: 500, under: 'screen' })]
+    await ok(app, m('quoting.online', { on: true }), m('quote.save', { id: 'v2', projectId: 'gala', lines: [screen, ...kit], discountPct: 0, notes: '' }), m('quote.sent', { id: 'v2', on: today }))
+    const page = (await app.inject({ url: `/q/${(await quote('v2')).acceptToken!}` })).body
+    expect(page).toContain('LED screen 5 × 3 m, hung<small>10 panels wide by 6 high · 1,280 × 768 pixels</small><small>With 60 × Absen NT 3.9, 10 × Absen fly bar</small>')
+    // Sixty panels and ten bars for two days, on the screen's own line.
+    expect(page).toContain('<td class="n">1</td><td class="n">€2,500.00</td>')
+  })
+
   it('takes nothing on a version replaced by a newer one, or whose prices have stopped holding', async () => {
     const { app, quote, accept } = await sent()
     await ok(app, m('quoting.online', { on: true }))

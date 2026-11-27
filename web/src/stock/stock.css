@@ -358,6 +358,9 @@ body.native-scan #root { position: fixed; inset: var(--cam-band) 0 0 0; overflow
 .warehouse .length-field small .link { min-height: 44px; }
 .warehouse .length-fact .length-add { margin-top: var(--ds-space-2); max-width: 20em; }
 .warehouse .length-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ds-space-1); }
+/* An LED panel's size on its page (ADR 0207): the builder's own boxes (jobs.css, .screen-pair), opened under what it says now. */
+.warehouse .panel-fact .panel-add { display: grid; gap: var(--ds-space-3); margin-top: var(--ds-space-2); max-width: 26rem; }
+.warehouse .panel-fact .panel-add .hint { margin: 0; }
 /* Add products (ADR 0203): the camera first, the line of items to check, one open at a time, and what was done. */
 .add-products .add-photo label.button.primary { width: 100%; background: var(--accent-fill); border-color: var(--accent-fill); color: var(--on-accent); }
 .add-products .typed-item { margin-top: var(--ds-space-3); }

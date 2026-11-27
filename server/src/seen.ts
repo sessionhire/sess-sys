@@ -153,6 +153,7 @@ const CHECKED: Partial<Record<CommandName, Checked>> = {
       castors: 'castors setting',
       powerLimitA: 'power limit',
       rackPart: 'rack part setting',
+      panel: 'panel size',
     },
     what: named('product'),
   },

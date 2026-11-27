@@ -114,6 +114,7 @@ const MODEL_COLUMNS = {
   powerLimitA: 'power_limit_a',
   rackPart: 'rack_part',
   lengthM: 'length_m',
+  panel: 'panel',
 } as const
 
 const described = async (ctx: Ctx, assetId: string) => {
@@ -351,9 +352,9 @@ async function createModel(ctx: Ctx, a: CommandArgs<'model.create'>, toCheck: bo
   await ctx.tx.query(
     `INSERT INTO models (id, name, department, category, tracking, is_case, value_cents, notes, pat_months, lifting_months, aliases, list_id,
                          is_rack, code, units, depth_mm, weight_kg, power_w, dry_hire, supplier, hire_day_cents,
-                         rack_mount, rack_width, case_width_mm, case_height_mm, case_depth_mm, castors, power_limit_a, rack_part, length_m)
+                         rack_mount, rack_width, case_width_mm, case_height_mm, case_depth_mm, castors, power_limit_a, rack_part, length_m, panel)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21,
-             $22, $23, $24, $25, $26, $27, $28, $29, $30)`,
+             $22, $23, $24, $25, $26, $27, $28, $29, $30, $31)`,
     [
       a.id,
       a.name.trim(),
@@ -385,6 +386,7 @@ async function createModel(ctx: Ctx, a: CommandArgs<'model.create'>, toCheck: bo
       a.powerLimitA,
       a.rackPart,
       a.lengthM,
+      a.panel ? JSON.stringify(a.panel) : null,
     ]
   )
   await giveProductNumber(ctx, a.id)
@@ -459,7 +461,15 @@ export const stockHandlers: { [N in StockCommand]: Handler<N> } = {
     await ctx.tx.query(`UPDATE models SET ${fields.map((k, i) => `${MODEL_COLUMNS[k]} = $${i + 2}`).join(', ')} WHERE id = $1`, [
       a.id,
       ...fields.map((k) =>
-        k === 'name' || k === 'category' || k === 'code' ? String(a[k]).trim() : k === 'aliases' ? JSON.stringify(aliasesOf(a.aliases!.join(','), next.name)) : a[k]
+        k === 'name' || k === 'category' || k === 'code'
+          ? String(a[k]).trim()
+          : k === 'aliases'
+            ? JSON.stringify(aliasesOf(a.aliases!.join(','), next.name))
+            : k === 'panel'
+              ? a.panel
+                ? JSON.stringify(a.panel)
+                : null
+              : a[k]
       ),
     ])
     await emit(ctx, 'model', a.id, await getModel(ctx.tx, a.id))

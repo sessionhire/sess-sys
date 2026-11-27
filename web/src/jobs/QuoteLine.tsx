@@ -410,6 +410,26 @@ export function LineSummary({
 }
 
 /**
+ * An LED screen's own line (ADR 0207): its size and how it stands, the panels it's made of, and what its kit comes to.
+ * The whole row opens the builder, which is where a screen is changed: its counts are worked out from its size, so
+ * there is nothing on this line to type, and How many of it is the builder's too, since two screens take twice the kit.
+ */
+export function ScreenRow({ l, n, total, onOpen }: { l: LineDraft; n: number; total: number | undefined; onOpen: () => void }) {
+  const name = `${num(l.qty) > 1 ? `${l.qty} × ` : ''}${l.what}`
+  return (
+    <button type="button" className="quote-line-shut screen-head" data-screen-head={l.id} onClick={onOpen} aria-haspopup="dialog" aria-label={`Line ${n}: ${name}, change the screen`}>
+      <span className="what">{name}</span>
+      <span className="how">{l.includes}</span>
+      <span className="amount">
+        {total === undefined ? '–' : money(total)}
+        <small>at its kit’s prices</small>
+      </span>
+      <Icon name="edit" className="opener" />
+    </button>
+  )
+}
+
+/**
  * A line open to change: what it is across the top, its numbers in one row (two on a phone), what it comes to, then
  * what's short, what it was last charged, and the cost fold. A field's fault shows once that field, or the line, has
  * been left (design system rule 18), beside its cause, and goes the moment it's put right.

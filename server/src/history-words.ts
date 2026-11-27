@@ -16,6 +16,8 @@ import {
   normaliseNumber,
   numberText,
   itemCode,
+  panelFacts,
+  panelWords,
   plural,
   RETIRED_LABELS,
   STATUS_LABELS,
@@ -536,6 +538,11 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
       if (a.supplier !== undefined) parts.push(typeof a.supplier === 'string' && a.supplier.trim() ? `hired from ${clip(a.supplier.trim())}` : 'no supplier')
       if (a.hireDayCents !== undefined) parts.push(typeof a.hireDayCents === 'number' ? `hire price to ${valueLabel(a.hireDayCents)} a day` : 'no hire price')
       if (a.lengthM !== undefined) parts.push(typeof a.lengthM === 'number' ? `length to ${lengthLabel(a.lengthM)}` : 'no length')
+      // An LED panel's size (ADR 0207).
+      if (a.panel !== undefined) {
+        const panel = panelFacts.safeParse(a.panel)
+        parts.push(panel.success ? `its panel size to ${panelWords(panel.data)}` : 'not an LED panel')
+      }
       if (a.listId !== undefined) parts.push(typeof a.listId === 'string' && a.listId ? `its id in the list it came from to ${a.listId}` : 'no id from a list')
       return `Changed the product ${model(a.id)}: ${inWords(parts)}`
     }

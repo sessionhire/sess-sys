@@ -3,6 +3,52 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 27 November 2026: an LED screen built on a quote
+
+**Done (1.245.0, #466, ADR 0207)**
+
+- Colly: "Can we make a LED Screen builder function within the quote form? Using
+  the learnings from the pixel map project and the tipping point project.
+  After selecting to add an LED screen a popover can come up with the
+  additional questions needed. Such as the size, the panels used (with the
+  panels we hold being at the top), if the screen is hung or ground stacked
+  etc. When all complete it can add in the relevant product items from the
+  stock in an LED screen group. Take your time, consider the flow, consider
+  the UI and make it simple for the user."
+- Add LED screen on a quote (with the other ways to add, and found in Add kit
+  by "led screen") opens a sheet with three questions: the size in metres, the
+  panel, and hung or ground stacked. The panels we own come first and the one
+  used last time is already chosen. A panel's size is asked the first time
+  it's used and kept on its product, whose page now has an LED panel row.
+- The answer shows as the questions are answered, beside them at a desk and
+  under them on a phone: the screen in whole panels, its pixels, weight and
+  power, how it hangs or stands, and the kit from the stock list part by part,
+  each with why it's that many and what it comes to. Hung: fly bars, truss
+  across the top, motors every 3 m or less (more where weight asks, none past
+  three quarters of what it lifts) and motor control. Ground stacked: truss
+  uprights on base plates, counted by the tipping point project's solver, with
+  the wind it holds to or the ballast it wants. Then a processor by its pixels
+  and a power distro by its 16 A circuits. Every part is ticked to begin with.
+- Add to quote puts the screen on as one line that comes to its kit, with the
+  kit under it, in an LED screen group. The printed quote and the client's
+  page show its panels and pixels. Pressing the line opens the sheet on its
+  answers; what the change does to the quote, and by how much, is said before
+  it's made. What's typed is kept if the sheet is shut.
+- It is a first pass to quote from, not a structural check, and says so.
+  Cables, slings, shackles, spare panels and ballast aren't added.
+- Checked: the sums (35 shared tests, with the kit we hold by its real
+  names), the server's tests for a panel's size, a screen's line, the printed
+  quote and the client's page, a browser test at a desk and on a phone (add,
+  reload, change, remove and Undo, shut and reopen, a ground stack, and the
+  narrowest phone), the screens looked at in both themes, and every check on
+  the pull request. Its code scan found three patterns that read a motor's
+  lift and a distro's ways from a product's name and would be slow on a very
+  long one; they're rewritten so they can't be.
+- Waiting on Colly: give each panel its size, pixels, weight and power the
+  first time it's used (or on its product page), and put the base plate's
+  weight on its product so a ground stack can say the wind it holds to. Then
+  try it on a real quote and say what reads wrong.
+
 ## 27 November 2026: start a quote from a similar past gig
 
 **Done (1.244.0, #465, ADR 0115 amended; merged at e94776d5)**

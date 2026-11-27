@@ -1,7 +1,7 @@
 import { crewSuggestion, otherSuggestion, withModel, type Pricing, type Suggestion } from './assistant.ts'
 import { inRacks } from './sync/quote-kit.ts'
 import { STOPPED, type ProjectStatus } from './jobs.ts'
-import { MAX_LINES, type QuoteLine } from './quotes.ts'
+import { headsKit, MAX_LINES, type QuoteLine } from './quotes.ts'
 import { DEPARTMENT_LABELS } from './stock.ts'
 import { nameWithLength } from './cable-colours.ts'
 import { namesAlike, sameClient } from './rms-history.ts'
@@ -107,7 +107,8 @@ export function pastJobSuggestions(input: PastJobLines, p: Pricing): { s: Sugges
   const packaged = new Map<string, number>()
   // A package with its kit under it (ADR 0116) charged by that kit comes as the kit, each product a line of its own; one
   // charged as a whole comes as its line, as one with no kit under it does. What's built into a rack comes with it.
-  const byKit = new Set(input.quoteLines.filter((l) => l.packageId && !l.unitCents && input.quoteLines.some((x) => x.under === l.id)).map((l) => l.id))
+  // An LED screen (ADR 0207) is charged by its kit too, so it comes the same way.
+  const byKit = new Set(input.quoteLines.filter((l) => headsKit(l) && !l.unitCents && input.quoteLines.some((x) => x.under === l.id)).map((l) => l.id))
   const skip = new Set(input.quoteLines.filter((l) => l.under && !byKit.has(l.under)))
   for (const l of inRacks(input.quoteLines)) skip.add(l)
   for (const l of input.quoteLines)

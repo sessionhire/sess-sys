@@ -345,6 +345,35 @@ describe('a package (ADR 0087)', () => {
   })
 })
 
+describe('an LED screen (ADR 0207)', () => {
+  it('keeps the answers it was built from on its line, with its kit under it, through to the next version', async () => {
+    const { app, quote } = await gala()
+    const screen = { panel: 'absen-nt', cols: 10, rows: 6, stands: 'hung' } as const
+    const head = line({ id: 'screen', what: 'LED screen 5 × 3 m, hung', group: 'LED screen', qty: 1, unitCents: 0, includes: '10 panels wide by 6 high · 1,280 × 768 pixels', screen })
+    const kit = [
+      line({ id: 'panels', what: 'Absen NT 3.9', modelId: 'absen-nt', group: 'LED screen', qty: 60, unitCents: 2000, under: 'screen' }),
+      line({ id: 'bars', what: 'Absen fly bar', group: 'LED screen', qty: 10, unitCents: 500, under: 'screen' }),
+    ]
+    await ok(app, save('q1', [head, ...kit]))
+    const kept = await quote('q1')
+    expect(kept.lines[0]).toMatchObject({ what: 'LED screen 5 × 3 m, hung', unitCents: 0, includes: '10 panels wide by 6 high · 1,280 × 768 pixels', screen })
+    expect(kept.lines.slice(1).map((l) => [l.what, l.qty, l.under])).toEqual([
+      ['Absen NT 3.9', 60, 'screen'],
+      ['Absen fly bar', 10, 'screen'],
+    ])
+    // Built again a metre wider, the same line holds the new answers.
+    await ok(app, save('q1', [{ ...head, what: 'LED screen 6 × 3 m, hung', screen: { ...screen, cols: 12 } }, { ...kit[0]!, qty: 72 }, { ...kit[1]!, qty: 12 }]))
+    expect((await quote('q1')).lines[0]).toMatchObject({ what: 'LED screen 6 × 3 m, hung', screen: { panel: 'absen-nt', cols: 12, rows: 6, stands: 'hung' } })
+    // Answers no screen has are refused in words, and a line that isn't a screen has none.
+    expect(await refused(app, save('q1', [{ ...head, screen: { ...screen, cols: 0 } }]))).toBe('Panels across is a whole number from 1 to 400.')
+    expect(await refused(app, save('q1', [{ ...head, screen: { ...screen, rows: 201 } }]))).toBe('Panels down is a whole number from 1 to 200.')
+    expect((await quote('q1')).lines.slice(1).every((l) => l.screen === undefined)).toBe(true)
+    // Sent, it stays as it went; the next version starts from it, the screen's line with its answers still.
+    await ok(app, m('quote.sent', { id: 'q1', on: day(-10) }))
+    expect((await quote('q1')).lines[0]).toMatchObject({ screen: { cols: 12, rows: 6 } })
+  })
+})
+
 describe('the cost side of a line (ADR 0089)', () => {
   it('keeps how many are hired in, who from and what a line costs, with the supplier trimmed, and refuses a cost below nothing', async () => {
     const { app, quote } = await gala()

@@ -66,6 +66,7 @@ import { ProductLabels } from './Labels.tsx'
 import { STOCK } from '../Up.tsx'
 import { pctText, pctTyped } from '../MarginTargetCard.tsx'
 import { asksLength, LengthFact, LengthField } from './CableLength.tsx'
+import { PanelFact } from './PanelFact.tsx'
 import { caseLabel, RackCard, sizeFrom, SizeFields, sizeLabel, sizeTypedOf, suppliersOf, weightPowerLabel, whoseFrom, WhoseFields, whoseTypedOf } from './Racks.tsx'
 
 /**
@@ -245,6 +246,7 @@ function Summary({ m, w, view }: { m: ModelView; w: WarehouseView; view: View })
             <dd>{[sizeLabel(m), weightPowerLabel(m)].filter(Boolean).join(', ')}</dd>
           </div>
         )}
+        <PanelFact m={m} mayChange={mayChange} />
         {m.isRack && caseLabel(m) && (
           <div>
             <dt>Its case</dt>

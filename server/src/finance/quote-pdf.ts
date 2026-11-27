@@ -16,6 +16,7 @@ import {
   lineSaving,
   linesByGroup,
   linesUnder,
+  headsKit,
   setCents,
   groupCents,
   money,
@@ -332,7 +333,8 @@ export function quotePdf(d: Sheet): Promise<Buffer> {
       }
       const under = linesUnder(q.lines, l.id)
       // A package with its kit under it (ADR 0116) comes to its own price and its kit's, and its kit is printed under it.
-      const byKit = under.length > 0 && !l.unitCents && !!l.packageId
+      // An LED screen (ADR 0207) is charged by its kit the same way.
+      const byKit = under.length > 0 && !l.unitCents && headsKit(l)
       // Given at no charge on purpose (audit of the quote flow, 8 November 2026, finding 1).
       const free = !!l.included && !under.length
       const price = `${money(l.unitCents)} ${priceWords(l)}`
