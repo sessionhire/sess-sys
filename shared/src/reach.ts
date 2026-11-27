@@ -653,10 +653,15 @@ const cancelledDays = (held: readonly number[]) => (Math.max(0, ...held) > 1 ? '
 /**
  * The same for a job being stopped, after "3 people offered or booked will see it's cancelled.": how many of them
  * Google emails. Nothing when it emails nobody, as the sentence before it has said who sees what.
+ *
+ * `why: false` leaves "and why" unsaid, for the cancel form (web/src/jobs/CancelJob.tsx): the why a cancellation carries is
+ * that the job was cancelled or didn't go ahead, which the form's sentence before has just said they'll see; and the form
+ * has a Why box of its own, for the office alone, that "and why" beside it would seem to send.
  */
 export function jobEndingWords(
   ctx: Pick<ReachContext, 'calendar' | 'today'>,
-  on: readonly { personId: string; offerId?: string | undefined; email?: string | null | undefined; whatsapp?: boolean }[]
+  on: readonly { personId: string; offerId?: string | undefined; email?: string | null | undefined; whatsapp?: boolean }[],
+  say: { why?: boolean } = {}
 ): string {
   const everyone = new Set(on.map((o) => o.personId)).size
   // One WhatsApp to each person it reaches, however many of the job's calls they're on (ADR 0154, whatsappFollows).
@@ -668,7 +673,7 @@ export function jobEndingWords(
   if (!emailed) return keptAmong(ctx, on.map((o) => o.offerId)) + andWhatsApp
   const who = emailed < everyone ? `${emailed} of them` : everyone === 1 ? 'them' : 'each of them'
   // Each cancellation says why, the job's being cancelled or not going ahead, where their invites tell them what happens next (ADR 0153).
-  const why = on.every((o) => !held.has(o.personId) || toldNext(ctx, o)) ? ' and why' : ''
+  const why = say.why !== false && on.every((o) => !held.has(o.personId) || toldNext(ctx, o)) ? ' and why' : ''
   return ` Google emails ${who} that ${cancelledDays([...held.values()].map((d) => d.size))} cancelled${why}${onceBack(ctx)}.${andWhatsApp}`
 }
 

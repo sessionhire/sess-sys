@@ -927,6 +927,47 @@ a.blk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .job-page .job-facts dd a.muted { color: var(--muted); font-weight: 500; }
 .job-page .job-notes { display: grid; gap: var(--ds-space-2); justify-items: start; }
 .job-page .job-notes .notes { margin: 0; color: var(--muted); }
+/* Stopping a job (CancelJob.tsx; Colly, 27 November 2026): a card of its own where the details' buttons were, as wide as the details
+   rather than as its words. What's asked sits beside what the press does where the card is wide enough for both, so both are read
+   before the buttons under them; on a phone one is under the other, and the page scrolls as one. */
+.job-page .job-notes > .cancel-job { justify-self: stretch; container-type: inline-size; }
+/* On a phone the job's Next sits in the foot, over the places (as the toaster knows, app.css): the form clears it as it comes into
+   view, so a short one isn't opened with Keep the job under it. */
+body:has(.foot-dock:not(:empty)) .cancel-job { scroll-margin-bottom: 112px; }
+.cancel-job-head { display: grid; gap: var(--stack); }
+.cancel-job-head .hint { overflow-wrap: anywhere; }
+.cancel-job-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--group); align-items: start; }
+.cancel-job-ask { display: grid; gap: var(--group); min-width: 0; }
+/* The two ways it stops, as a choice card is drawn anywhere (New's kind): its radio beside its name and line. */
+.cancel-job .choices .signal { gap: var(--ds-space-3); padding: var(--ds-space-2) var(--ds-space-3); }
+.cancel-job .choices .signal span span { color: var(--muted); font-size: var(--text-small); }
+/* The reason's label outside its box and its hint under it (the design system's rule 19), in a form's label style. */
+.cancel-job-why { display: grid; gap: var(--stack); min-width: 0; }
+.cancel-job-why label, .cancel-job-label { margin: 0; font-size: var(--text-hint); color: var(--muted); }
+.cancel-job-why input { width: 100%; }
+/* What the press does: a line for each part of the job, behind its icon. Every line is inset alike, so the icons hold one edge
+   whether a line is plain or on the amber of something that leaves the app (the wash and ink of .warn-line, a question before a press). */
+.cancel-job-does { display: grid; gap: var(--ds-space-2); min-width: 0; }
+.cancel-job-does ul { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ds-space-1); }
+.cancel-job-does li { display: flex; gap: var(--ds-space-2); align-items: flex-start; padding: var(--ds-space-1) var(--ds-space-3); border-radius: var(--radius-control); font-size: var(--text-small); overflow-wrap: anywhere; }
+/* The icon is as tall as a line of the words beside it, so it sits level with the first of them however they wrap. */
+.cancel-job-does li .icon { flex: none; width: 18px; height: 24px; height: 1lh; color: var(--muted); }
+.cancel-job-does li.warn { background: var(--warn-soft); color: var(--warn); padding-block: var(--ds-space-2); }
+.cancel-job-does li.warn .icon { color: inherit; }
+.cancel-job-nothing { margin: 0; font-size: var(--text-small); }
+.cancel-job-does > .hint { max-width: 75ch; }
+@container (min-width: 34rem) and (max-width: 44.99rem) {
+  .cancel-job .choices { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cancel-job .choices legend { grid-column: 1 / -1; }
+}
+@container (min-width: 45rem) {
+  .cancel-job-body { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--ds-space-8); }
+}
+/* On a phone the two ways on are each the width of the card, as a form's are. */
+@media (max-width: 639px) {
+  .cancel-job > .actions { flex-direction: column; align-items: stretch; }
+  .cancel-job > .actions > button { width: 100%; }
+}
 
 /* Quotes to follow up (ADR 0081): on Money and Notifications, each group a short list, the oldest waiting first. */
 /* Its lists sit flush under their heading, as every list here does, not indented by the browser's own 40px. */
