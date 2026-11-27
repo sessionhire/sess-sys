@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.241.0',
+    date: '2026-11-27',
+    title: 'Freelancers can use a laptop’s webcam to add products',
+    what: "The Add products page on a freelancer's own link now offers Use the webcam on a laptop or desktop with a camera, as the app does: Take photo for the item and its label, each can be taken out again, and Read it sends them to Claude. Uploading photos still works beside it, and phones are as before.",
+    prs: [458],
+    adrs: [203],
+  },
+  {
     version: '1.240.0',
     date: '2026-11-27',
     title: 'Add products with a laptop’s webcam',
