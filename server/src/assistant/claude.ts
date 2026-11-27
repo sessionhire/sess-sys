@@ -56,10 +56,10 @@ export interface ClaudeConfig {
 export function anthropicAsk(apiKey: string, model: string): Ask {
   const client = new Anthropic({ apiKey, maxRetries: 2, timeout: 90_000 })
   return async ({ system, user, schema, maxTokens, images, searches, cacheSystem }) => {
-    const content: Anthropic.ContentBlockParam[] = [
-      ...(images ?? []).map((i): Anthropic.ImageBlockParam => ({ type: 'image', source: { type: 'base64', media_type: i.type, data: i.data } })),
-      { type: 'text', text: user },
-    ]
+    // Words alone go as they always did; photos go first, then the words.
+    const content: string | Anthropic.ContentBlockParam[] = images?.length
+      ? [...images.map((i): Anthropic.ImageBlockParam => ({ type: 'image', source: { type: 'base64', media_type: i.type, data: i.data } })), { type: 'text', text: user }]
+      : user
     const messages: Anthropic.MessageParam[] = [{ role: 'user', content }]
     const tools: Anthropic.ToolUnion[] = searches ? [{ type: 'web_search_20260209', name: 'web_search', max_uses: searches }] : []
     const used = { model, inputTokens: 0, outputTokens: 0, searches: 0 }
