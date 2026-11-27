@@ -32,7 +32,7 @@ export const CHANGELOG: readonly Release[] = [
     date: '2026-11-27',
     title: 'Start a quote from a similar past gig',
     what: "A job's Quote tab now has Start from a past gig: on Make a quote, on a draft with no lines yet, and under More to add as Add from a past gig once it has some. It lists past gigs with the same client, the same venue or a similar name, the ones with the most in common first, each saying what matched (Same client, venue and name; Same venue; Similar name). Pick one to see its lines, as much kit as actually went out, untick any you don't want, and add them to this quote, after any already on it. The client's past quotes in Current RMS are listed too. New quote's Start from list now counts a similar name as well, and ranks the same way.",
-    prs: [0],
+    prs: [465],
     adrs: [115],
   },
   {
