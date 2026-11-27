@@ -11,7 +11,7 @@ describe('roles', () => {
   it('go from most to least: a director can do all, staff crew only their own leave, their own job steps, the purchase list and a fault', () => {
     expect(ROLE_CAN.director).toEqual(ABILITIES)
     for (const r of ROLES) for (const a of ROLE_CAN[r]) expect(ROLE_CAN.director).toContain(a)
-    expect(ROLE_CAN.crew).toEqual(['fault', 'leave', 'steps', 'ask', 'answer', 'photos'])
+    expect(ROLE_CAN.crew).toEqual(['fault', 'leave', 'steps', 'ask', 'answer', 'photos', 'products'])
     // Staff crew put photos on a job (ADR 0182); a freelancer only sees them.
     expect(roleMayRun('crew', 'jobPhoto.save')).toBe(true)
     expect(roleMayRun('freelancer', 'jobPhoto.save')).toBe(false)
@@ -21,7 +21,11 @@ describe('roles', () => {
     expect(roleMayRun('head', 'move.record')).toBe(true)
     expect(roleMayRun('head', 'project.update')).toBe(false)
     // A freelancer signed in reports a fault; their own offers, timesheets and days off go through their link (ADR 0051).
-    expect(ROLE_CAN.freelancer).toEqual(['fault', 'ask'])
+    expect(ROLE_CAN.freelancer).toEqual(['fault', 'ask', 'products'])
+    // Anyone signed in adds new products from Stock › Add products (ADR 0203); someone who runs the stock looks them over.
+    expect(roleMayRun('freelancer', 'model.add')).toBe(true)
+    expect(roleMayRun('freelancer', 'model.create')).toBe(false)
+    expect(roleMayRun('crew', 'model.checked')).toBe(false)
     // Anyone signed in asks for kit to be bought and votes (ADR 0077); saying where it's at is stock's.
     expect(roleMayRun('freelancer', 'purchase.vote')).toBe(true)
     expect(roleMayRun('crew', 'purchase.status')).toBe(false)

@@ -1,5 +1,7 @@
 import {
   aliasesOf,
+  PLAIN_PRODUCT,
+  roleCan,
   inShForm,
   itemCode,
   MAX_ITEM_NUMBER,
@@ -64,6 +66,8 @@ import {
 
 type StockCommand =
   | 'model.create'
+  | 'model.add'
+  | 'model.checked'
   | 'model.update'
   | 'model.remove'
   | 'model.mistake'
@@ -336,54 +340,72 @@ async function giveProductNumber(ctx: Ctx, modelId: string) {
   await ctx.tx.query('UPDATE models SET code_number = $2 WHERE id = $1', [modelId, n])
 }
 
+/** A new product, from New product or the stock list (model.create), or from Add products (model.add, ADR 0203). */
+async function createModel(ctx: Ctx, a: CommandArgs<'model.create'>, toCheck: boolean) {
+  if (await getModel(ctx.tx, a.id)) throw new Refused({ code: 'conflict', message: 'This product already exists.' })
+  const taken = await productTaken(ctx.tx, { name: a.name.trim(), lengthM: a.lengthM }, a.id)
+  if (taken) throw new Refused({ code: 'conflict', message: `There's already a product called ${taken}.` })
+  const code = a.code.trim()
+  const coded = code && (await codeTaken(ctx.tx, code, a.id))
+  if (coded) throw new Refused({ code: 'conflict', message: `${coded} already has the stock code ${code}.` })
+  await ctx.tx.query(
+    `INSERT INTO models (id, name, department, category, tracking, is_case, value_cents, notes, pat_months, lifting_months, aliases, list_id,
+                         is_rack, code, units, depth_mm, weight_kg, power_w, dry_hire, supplier, hire_day_cents,
+                         rack_mount, rack_width, case_width_mm, case_height_mm, case_depth_mm, castors, power_limit_a, rack_part, length_m)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21,
+             $22, $23, $24, $25, $26, $27, $28, $29, $30)`,
+    [
+      a.id,
+      a.name.trim(),
+      a.department,
+      a.category.trim(),
+      a.tracking,
+      a.isCase,
+      a.valueCents,
+      a.notes,
+      a.patMonths,
+      a.liftingMonths,
+      JSON.stringify(aliasesOf((a.aliases ?? []).join(','), a.name)),
+      a.listId ?? '',
+      a.isRack,
+      code,
+      a.units,
+      a.depthMm,
+      a.weightKg,
+      a.powerW,
+      a.dryHire,
+      a.supplier,
+      a.hireDayCents,
+      a.rackMount,
+      a.rackWidth,
+      a.caseWidthMm,
+      a.caseHeightMm,
+      a.caseDepthMm,
+      a.castors,
+      a.powerLimitA,
+      a.rackPart,
+      a.lengthM,
+    ]
+  )
+  await giveProductNumber(ctx, a.id)
+  if (toCheck) await ctx.tx.query('UPDATE models SET to_check = true WHERE id = $1', [a.id])
+  await emit(ctx, 'model', a.id, await getModel(ctx.tx, a.id))
+}
+
 export const stockHandlers: { [N in StockCommand]: Handler<N> } = {
   async 'model.create'(ctx, a) {
-    if (await getModel(ctx.tx, a.id)) throw new Refused({ code: 'conflict', message: 'This product already exists.' })
-    const taken = await productTaken(ctx.tx, { name: a.name.trim(), lengthM: a.lengthM }, a.id)
-    if (taken) throw new Refused({ code: 'conflict', message: `There's already a product called ${taken}.` })
-    const code = a.code.trim()
-    const coded = code && (await codeTaken(ctx.tx, code, a.id))
-    if (coded) throw new Refused({ code: 'conflict', message: `${coded} already has the stock code ${code}.` })
-    await ctx.tx.query(
-      `INSERT INTO models (id, name, department, category, tracking, is_case, value_cents, notes, pat_months, lifting_months, aliases, list_id,
-                           is_rack, code, units, depth_mm, weight_kg, power_w, dry_hire, supplier, hire_day_cents,
-                           rack_mount, rack_width, case_width_mm, case_height_mm, case_depth_mm, castors, power_limit_a, rack_part, length_m)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21,
-               $22, $23, $24, $25, $26, $27, $28, $29, $30)`,
-      [
-        a.id,
-        a.name.trim(),
-        a.department,
-        a.category.trim(),
-        a.tracking,
-        a.isCase,
-        a.valueCents,
-        a.notes,
-        a.patMonths,
-        a.liftingMonths,
-        JSON.stringify(aliasesOf((a.aliases ?? []).join(','), a.name)),
-        a.listId ?? '',
-        a.isRack,
-        code,
-        a.units,
-        a.depthMm,
-        a.weightKg,
-        a.powerW,
-        a.dryHire,
-        a.supplier,
-        a.hireDayCents,
-        a.rackMount,
-        a.rackWidth,
-        a.caseWidthMm,
-        a.caseHeightMm,
-        a.caseDepthMm,
-        a.castors,
-        a.powerLimitA,
-        a.rackPart,
-        a.lengthM,
-      ]
-    )
-    await giveProductNumber(ctx, a.id)
+    await createModel(ctx, a, false)
+  },
+
+  // A new product from Stock › Add products (ADR 0203): one of our own, waiting to be checked when whoever added it doesn't run the stock.
+  async 'model.add'(ctx, a) {
+    await createModel(ctx, { ...PLAIN_PRODUCT, liftingMonths: null, ...a }, ctx.via === 'link' || (!!ctx.role && !roleCan(ctx.role, 'stock')))
+  },
+
+  async 'model.checked'(ctx, a) {
+    const m = await mustModel(ctx, a.id, true)
+    if (!m.toCheck) return
+    await ctx.tx.query('UPDATE models SET to_check = false WHERE id = $1', [a.id])
     await emit(ctx, 'model', a.id, await getModel(ctx.tx, a.id))
   },
 

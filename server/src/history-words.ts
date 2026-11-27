@@ -501,6 +501,10 @@ export function describe(command: string, a: Data, look: Look, left?: Data, from
     }
     case 'model.create':
       return `Added the product ${text(a.name, 'a product')} (${department(a.department)}, ${tracking(a.tracking)}${a.isRack ? ', a rack' : a.isCase ? ', holds other kit' : ''}${a.rackMount ? ', rack-mount' : ''}${typeof a.rackPart === 'string' ? `, ${RACK_PART_LABELS[a.rackPart as RackPart]?.toLowerCase() ?? 'a rack part'}` : ''}${typeof a.code === 'string' && a.code.trim() ? `, stock code ${clip(a.code.trim())}` : ''}${a.dryHire ? `, dry hire${typeof a.supplier === 'string' && a.supplier.trim() ? ` from ${clip(a.supplier.trim())}` : ''}` : ''})`
+    case 'model.add':
+      return `Added the product ${text(a.name, 'a product')} (${department(a.department)}, ${tracking(a.tracking)}${a.isCase ? ', holds other kit' : ''}) on Add products`
+    case 'model.checked':
+      return `Looked over ${model(a.id)}, added on Add products`
     case 'model.update': {
       const parts: string[] = []
       if (a.name !== undefined) parts.push(`name to ${text(a.name, 'a product')}`)

@@ -5,6 +5,7 @@ import {
   enquiryAsk,
   enquiryReading,
   irishToday,
+  SEARCH_CENTS,
   type AssistantStatus,
   type EnquiryReading,
   type TodoList,
@@ -39,6 +40,11 @@ export class Assistant {
     readonly config: ClaudeConfig | undefined
   ) {
     this.ask = config && (config.ask ?? anthropicAsk(config.apiKey, config.model))
+  }
+
+  /** Where what Claude is told is read from. */
+  get reads(): Queryable {
+    return this.db.reads
   }
 
   async status(q: Queryable = this.db.reads): Promise<AssistantStatus> {
@@ -84,7 +90,8 @@ export class Assistant {
 
   /** Counts an ask toward the month; `tally`, when given, is told what it cost (Admin › Claude's log, ADR 0200). */
   private async count(kind: string, used: Omit<Answer, 'json'>, ok: boolean, tally?: { cents: number }) {
-    const cents = costCents(this.config!.model, used.inputTokens, used.outputTokens)
+    // A web search is paid for on top of the words (ADR 0203).
+    const cents = costCents(this.config!.model, used.inputTokens, used.outputTokens) + (used.searches ?? 0) * SEARCH_CENTS
     if (tally) tally.cents += cents
     await this.db.query(`INSERT INTO assistant_uses (kind, model, input_tokens, output_tokens, cost_cents, ok) VALUES ($1, $2, $3, $4, $5, $6)`, [
       kind,

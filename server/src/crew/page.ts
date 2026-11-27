@@ -1021,6 +1021,15 @@ function purchasesBlock(base: string, open: number): string {
   </section>`
 }
 
+/** Kit in the warehouse that isn't on the stock list yet (ADR 0203): photographed and added from the link. */
+function addProductsBlock(base: string): string {
+  return `<section id="add-products">
+    <h2>Kit not on the stock list</h2>
+    <a class="sheet-link" href="${base}/add">Add products ›</a>
+    <p class="small">Photograph it and Claude fills in what it is, for you to check and add.</p>
+  </section>`
+}
+
 /** The way to report broken or missing kit (audit, 5 November 2026, finding 75), as their role allows. */
 function brokenBlock(base: string): string {
   return `<section id="broken">
@@ -1111,6 +1120,7 @@ ${d.demo ? `<p class="demo-bar" role="note"><span>Seeing it as <b>a freelancer</
 
   ${d.purchases === undefined ? '' : purchasesBlock(d.base, d.purchases)}
   ${d.purchases === undefined ? '' : brokenBlock(d.base)}
+  ${d.purchases === undefined ? '' : addProductsBlock(d.base)}
 
   ${details(d)}
   ${paymentSection(d)}

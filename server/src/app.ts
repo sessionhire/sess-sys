@@ -29,6 +29,8 @@ import { registerLinkCheck } from './crew/link-check.ts'
 import { registerJoin } from './applications/routes.ts'
 import { CELEBRATE_SCRIPT, COPY_SCRIPT } from './crew/page.ts'
 import { PHOTOS_SCRIPT } from './crew/photos-page.ts'
+import { ADD_PHOTOS_SCRIPT } from './crew/add-products-page.ts'
+import { registerAddProductsLink } from './crew/add-products-link.ts'
 import { PILLS_SCRIPT } from './applications/page.ts'
 import { OPEN_PAYMENT_KEY, registerPaymentRoutes } from './crew/payment.ts'
 import { registerSignOutEverywhere } from './auth/sign-out-everywhere.ts'
@@ -67,6 +69,7 @@ import { RmsReader } from './rms/reader.ts'
 import { registerRmsRoutes } from './rms/routes.ts'
 import type { ClaudeConfig } from './assistant/claude.ts'
 import { Assistant, registerAssistantRoutes } from './assistant/routes.ts'
+import { registerProductReadRoutes } from './assistant/products.ts'
 import { Todo } from './assistant/todo.ts'
 import type { Gmail } from './assistant/gmail.ts'
 import { Mailbox } from './assistant/mailbox.ts'
@@ -477,7 +480,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   // The server's own pages get a strict content security policy (audit finding 24); the app shell sets its own as it's
   // served, below, and a document's file a stricter one of its own (ADR 0029). Anything else isn't a page, and needs only
   // to stay out of other sites' frames.
-  const pages = pagePolicy([COPY_SCRIPT, CELEBRATE_SCRIPT, PILLS_SCRIPT, PHOTOS_SCRIPT])
+  const pages = pagePolicy([COPY_SCRIPT, CELEBRATE_SCRIPT, PILLS_SCRIPT, PHOTOS_SCRIPT, ADD_PHOTOS_SCRIPT])
   app.addHook('onSend', async (req, reply) => {
     reply.header('x-content-type-options', 'nosniff')
     if (!reply.hasHeader('content-security-policy')) {
@@ -742,6 +745,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   const todo = new Todo(db, assistant, app.log)
   app.decorate('assistantTodo', todo)
   registerAssistantRoutes(app, { assistant, todo })
+  registerProductReadRoutes(app, { assistant })
+  registerAddProductsLink(app, { db, files: documents, assistant, onChange: changed })
   const mailbox = new Mailbox(db, assistant, google, calendar?.clientSecret, () => void poke(), app.log, options.gmail)
   app.decorate('assistantMailbox', mailbox)
   applicantEmails = new ApplicantEmails(db, mailbox, { appUrl: calendar?.appUrl ?? null, log: app.log })

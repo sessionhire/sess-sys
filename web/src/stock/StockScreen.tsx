@@ -50,6 +50,7 @@ import { ItemScreen } from './ItemScreen.tsx'
 import { RepairList } from './Faults.tsx'
 import { TestingScreen } from './Inspections.tsx'
 import { ImportStockScreen } from './ImportStock.tsx'
+import { AddProductsScreen } from './AddProducts.tsx'
 import { ClaimLabel, LabelsScreen, RunScreen, type ClaimMemory } from './Labels.tsx'
 import { PlaceScreen } from './PlaceScreen.tsx'
 import { CameraScanner, primeSound } from './Scanner.tsx'
@@ -95,6 +96,7 @@ export function StockScreen() {
   if (hash === '#stock/places') return <PlacesScreen view={view} />
   if (hash === '#stock/repairs') return <RepairsScreen view={view} />
   if (hash === '#stock/import') return <ImportStockScreen view={view} />
+  if (hash === '#stock/add') return <AddProductsScreen view={view} />
   if (hash === '#stock/labels') return <LabelsScreen view={view} />
   if (hash === '#stock/testing') return <TestingScreen view={view} />
   if (hash === '#stock/count') return <CountScreen view={view} />
@@ -182,6 +184,17 @@ function Catalogue({ view }: { view: View }) {
           <button type="button" className="link" onClick={findToReport}>
             Report it ›
           </button>
+        </section>
+      )}
+
+      {/* Kit in the warehouse that isn't on the list yet: anyone adds it (ADR 0203). */}
+      {!mayStock && !searching && (
+        <section className="card report-kit" aria-label="Kit not on the list yet">
+          <h2>Kit not on the list yet</h2>
+          <p>Photograph it and Claude fills in what it is, for you to check and add.</p>
+          <a className="link" href="#stock/add">
+            Add products ›
+          </a>
         </section>
       )}
 

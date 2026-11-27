@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.239.0',
+    date: '2026-11-27',
+    title: 'Add products from a photo',
+    what: "Stock › Add products is for getting the kit in the warehouse that isn't on the stock list yet onto it quickly. Take a photo of an item, and one of its maker's label if it has one, and Claude reads the make and model, looks it up on the web and fills in the name, department, category, length, weight, power, rack size, replacement value and PAT for you to check. Keep photographing while it reads: each item waits in a line to be checked. Before you add one it shows what's already on the list that it might be, so nothing goes on twice, and the photo goes on the product. Anyone can add products, staff crew included, and freelancers can from their private link; what they add is marked for someone who runs the stock to look over. With Claude off, you type the name and fill it in yourself. Counting and labelling come later, as their own step.",
+    prs: [455],
+    adrs: [203],
+  },
+  {
     version: '1.238.0',
     date: '2026-11-27',
     title: 'A cable’s length beside its name',

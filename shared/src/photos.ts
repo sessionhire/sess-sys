@@ -67,6 +67,9 @@ export const productPhotoPath = (modelId: string, at: string) => `/api/models/${
 /** Whether someone can put up or take down a product's photo: whoever changes stock. No role is held to nothing. */
 export const mayChangeProductPhoto = (role: Role | null | undefined) => !role || roleCan(role, 'stock')
 
+/** Whether someone can add products on Stock › Add products (ADR 0203): everyone with a role, and anyone while roles are off. */
+export const mayAddProducts = (role: Role | null | undefined) => !role || roleCan(role, 'products')
+
 /**
  * The company's logo (ADR 0106), printed in black on every label: kept as
  * a product's photo is, on the "logo" setting, and put up or taken down by

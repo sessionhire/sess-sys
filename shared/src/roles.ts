@@ -40,12 +40,12 @@ export const ROLE_LINES: Record<Role, string> = {
   director: 'Everything, and the things only a director does: roles, erasing a person, deleting a quote, starting fresh.',
   office: 'Jobs, crew, kit and stock, money, and the settings: calendar, office details, bringing lists in, downloads.',
   head: "Crew and their bookings, kit on jobs, stock and the warehouse, the purchase list, and jobs' steps. Not jobs themselves, nor settings.",
-  crew: "Their own leave and days in lieu, answering their own offers, the job steps given to them, putting photos on jobs, asking for kit to be bought and voting for it, and reporting a fault. They can look at the rest, but nobody else's pay, link, email, notes or documents.",
-  freelancer: "Reporting a fault, and asking for kit to be bought and voting for it. Their offers, bookings, timesheets, days off and photos of the jobs they're on go through their private link; they can look at the rest, but nobody else's pay, link, phone, email, notes or documents.",
+  crew: "Their own leave and days in lieu, answering their own offers, the job steps given to them, putting photos on jobs, adding new products to the stock list, asking for kit to be bought and voting for it, and reporting a fault. They can look at the rest, but nobody else's pay, link, email, notes or documents.",
+  freelancer: "Reporting a fault, adding new products to the stock list, and asking for kit to be bought and voting for it. Their offers, bookings, timesheets, days off and photos of the jobs they're on go through their private link; they can look at the rest, but nobody else's pay, link, phone, email, notes or documents.",
 }
 
 /** The kinds of change a role can make. Each command needs exactly one. */
-export const ABILITIES = ['jobs', 'crew', 'kit', 'stock', 'fault', 'leave', 'steps', 'ask', 'answer', 'photos', 'money', 'settings', 'company'] as const
+export const ABILITIES = ['jobs', 'crew', 'kit', 'stock', 'fault', 'leave', 'steps', 'ask', 'answer', 'photos', 'products', 'money', 'settings', 'company'] as const
 export type Ability = (typeof ABILITIES)[number]
 
 /** Each kind of change, as "Only … can ___". */
@@ -60,6 +60,7 @@ const ABILITY_WORDS: Record<Ability, string> = {
   ask: 'ask for kit to be bought, or vote for it',
   answer: 'answer their own offers in the app',
   photos: 'put photos on a job and say what they show',
+  products: 'add new products to the stock list',
   money: 'see and change prices, quotes and what is owed',
   settings: 'change settings, bring lists in or download everything',
   company: 'change roles, erase a person, delete a quote or start fresh',
@@ -68,14 +69,16 @@ const ABILITY_WORDS: Record<Ability, string> = {
 /** What each role can change. A director can change everything. */
 export const ROLE_CAN: Record<Role, readonly Ability[]> = {
   director: ABILITIES,
-  office: ['jobs', 'crew', 'kit', 'stock', 'fault', 'leave', 'steps', 'ask', 'answer', 'photos', 'money', 'settings'],
-  head: ['crew', 'kit', 'stock', 'fault', 'leave', 'steps', 'ask', 'answer', 'photos'],
+  office: ['jobs', 'crew', 'kit', 'stock', 'fault', 'leave', 'steps', 'ask', 'answer', 'photos', 'products', 'money', 'settings'],
+  head: ['crew', 'kit', 'stock', 'fault', 'leave', 'steps', 'ask', 'answer', 'photos', 'products'],
   // Staff crew tick or hand on their own steps only (ADR 0073), which the step's handler checks on top.
   // and answer their own offers in the app (ADR 0111), which offer.respond's handler checks on top.
   // Every member of staff puts photos on a job (ADR 0182); taking down someone else's needs jobs, which jobPhoto.remove checks on top.
-  crew: ['fault', 'leave', 'steps', 'ask', 'answer', 'photos'],
+  // Everyone adds new products to the stock list (ADR 0203): only adding, marked "to check" for whoever runs the stock; changing
+  // or taking one off stays with stock.
+  crew: ['fault', 'leave', 'steps', 'ask', 'answer', 'photos', 'products'],
   // Anyone signed in can ask for kit to be bought and vote for it (ADR 0077); changing someone else's request needs stock, checked by the handler.
-  freelancer: ['fault', 'ask'],
+  freelancer: ['fault', 'ask', 'products'],
 }
 
 /**
@@ -154,6 +157,9 @@ export const COMMAND_NEEDS: Record<CommandName, Ability> = {
   'vehicleBooking.remove': 'kit',
 
   'model.create': 'stock',
+  // Adding a product on Stock › Add products (ADR 0203): anyone may; it waits to be checked unless they run the stock.
+  'model.add': 'products',
+  'model.checked': 'stock',
   'model.update': 'stock',
   'model.remove': 'stock',
   'model.mistake': 'stock',

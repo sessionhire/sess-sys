@@ -240,6 +240,12 @@ export type Model = z.infer<typeof model> & {
    * Null on a device until the server has given it.
    */
   codeNumber?: number | null
+  /**
+   * Added on Stock › Add products (ADR 0203) by someone who doesn't run the
+   * stock, and not yet looked over by someone who does. Set by the server,
+   * never by an edit; left out when it isn't.
+   */
+  toCheck?: boolean
 }
 
 /** Why an item is no longer stock. `mistake` is for one that never was: it's hidden everywhere but the history. */
@@ -479,6 +485,25 @@ export const stockCommandSchemas = {
     .refine(...rackIsOurs)
     .refine(...rackIsNotMounted)
     .refine(...partIsMounted),
+  /**
+   * A new product from Stock › Add products (ADR 0203), which anyone may add: a product of our own, never a rack, dry hire or a
+   * rack part, with what a photo and a look on the web can say of it. Changing it afterwards is stock's.
+   */
+  'model.add': model
+    .pick({ id: true, name: true, department: true, category: true, tracking: true, isCase: true, valueCents: true, notes: true })
+    .extend({
+      patMonths: months.default(null),
+      aliases: model.shape.aliases,
+      units: model.shape.units,
+      depthMm: model.shape.depthMm,
+      weightKg: model.shape.weightKg,
+      powerW: model.shape.powerW,
+      rackMount: model.shape.rackMount,
+      lengthM: model.shape.lengthM,
+    })
+    .refine(...caseIsNumbered),
+  /** Looked over (ADR 0203): a product added by someone who doesn't run the stock is no longer waiting to be checked. */
+  'model.checked': z.object({ id }),
   /** Refused while it has items, retired ones included, or counted stock. */
   'model.remove': z.object({ id }),
   /**

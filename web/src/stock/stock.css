@@ -358,3 +358,28 @@ body.native-scan #root { position: fixed; inset: var(--cam-band) 0 0 0; overflow
 .warehouse .length-field small .link { min-height: 44px; }
 .warehouse .length-fact .length-add { margin-top: var(--ds-space-2); max-width: 20em; }
 .warehouse .length-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ds-space-1); }
+/* Add products (ADR 0203): the camera first, the line of items to check, one open at a time, and what was done. */
+.add-products .add-photo label.button.primary { width: 100%; background: var(--accent-fill); border-color: var(--accent-fill); color: var(--on-accent); }
+.add-products .typed-item { margin-top: var(--ds-space-3); }
+.add-products .add-line { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--ds-space-2); }
+.add-products .add-row { display: flex; align-items: center; gap: var(--ds-space-2); width: 100%; text-align: start; justify-content: flex-start; }
+.add-products .add-row span { display: grid; min-width: 0; }
+.add-products .add-row small, .add-products .add-done small { color: var(--ds-ink-secondary); }
+.add-products .check-item { display: grid; gap: var(--ds-space-3); padding-block: var(--ds-space-2); border-block: 1px solid var(--line); }
+.add-products .add-photos { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); align-items: center; }
+.add-products .add-photos img { width: 96px; height: 96px; object-fit: cover; border-radius: var(--radius-control); border: 1px solid var(--line); }
+.add-products .by-claude { color: var(--ds-ink-secondary); font-size: var(--text-small); }
+.add-products .by-claude p { margin: 0; }
+.add-products .sources { margin: var(--ds-space-1) 0 0; padding-inline-start: var(--ds-space-4); }
+.add-products .sources a { overflow-wrap: anywhere; }
+.add-products .alike h3 { margin: 0; }
+.add-products .alike ul { list-style: none; padding: 0; margin: var(--ds-space-2) 0 0; display: grid; gap: var(--ds-space-2); }
+.add-products .alike li { display: flex; align-items: center; gap: var(--ds-space-2); }
+.add-products .alike li > span { display: grid; flex: 1; min-width: 0; }
+.add-products .add-done { display: grid; gap: var(--ds-space-1); padding-block: var(--ds-space-1); }
+.add-products .add-done a { display: inline-flex; align-items: center; gap: var(--ds-space-1); }
+.add-products .to-look-over { display: flex; align-items: center; gap: var(--ds-space-2); }
+.add-products .to-look-over .job-row { flex: 1; min-width: 0; }
+.warehouse .look-over { display: grid; gap: var(--ds-space-2); padding: var(--ds-space-2) var(--ds-space-3); border-inline-start: 3px solid var(--ds-ink-secondary); background: var(--ds-wash-hover); border-radius: var(--radius-control); margin-block-end: var(--ds-space-3); }
+.warehouse .look-over p { margin: 0; }
+.warehouse .look-over button { justify-self: start; }
