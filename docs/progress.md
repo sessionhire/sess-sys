@@ -3,6 +3,23 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 27 November 2026: start a quote from a similar past gig
+
+**Done (1.244.0, #465, ADR 0115 amended; merged at e94776d5)**
+
+- Colly: "Can we add a section on the quote page to use previous quote as a
+  template? With a list of other gigs kit lists that match either the venue,
+  the client, the name or both. the more matches the higher in the list."
+- A job's Quote tab has Start from a past gig: on Make a quote, open on an
+  empty draft, and under More to add as Add from a past gig once it has
+  lines. Past gigs with the same client, the same venue or a similar name,
+  the most in common first, each saying what matched. Picking one shows its
+  lines, kit as much as went out, ticked, to add after any already on.
+  Current RMS quotes for the client rank the same way.
+- New quote's Start from list counts a similar name too and ranks the same.
+- Checked: shared tests, the past-job, quote-start and quote-follow-up
+  browser tests, and every check on the PR.
+
 ## 27 November 2026: Claude checks replacement values
 
 **Done (1.243.0, #463, ADR 0206; live at 9a5c4e79)**
