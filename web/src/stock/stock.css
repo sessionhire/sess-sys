@@ -383,3 +383,22 @@ body.native-scan #root { position: fixed; inset: var(--cam-band) 0 0 0; overflow
 .warehouse .look-over { display: grid; gap: var(--ds-space-2); padding: var(--ds-space-2) var(--ds-space-3); border-inline-start: 3px solid var(--ds-ink-secondary); background: var(--ds-wash-hover); border-radius: var(--radius-control); margin-block-end: var(--ds-space-3); }
 .warehouse .look-over p { margin: 0; }
 .warehouse .look-over button { justify-self: start; }
+/* A laptop's webcam in Add products: the live picture at the card's width (a laptop camera's 16:9, up to 560px), Take photo under it,
+   and the item's photos so far, each with its own ×. */
+.add-products .add-photo { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); }
+.add-products .add-photo > * { flex: 1 1 12em; }
+.webcam { display: grid; gap: var(--ds-space-2); }
+.webcam .alert { display: grid; gap: var(--ds-space-2); justify-items: start; }
+.webcam .alert p { margin: 0; }
+.webcam-picture { position: relative; width: 100%; max-width: 560px; aspect-ratio: 16 / 9; justify-self: center; overflow: hidden; border-radius: var(--radius-card); background: #000; }
+.webcam-picture video { width: 100%; height: 100%; object-fit: contain; display: block; }
+.webcam-picture .starting { position: absolute; inset: auto 0 var(--ds-space-3); margin: 0; text-align: center; color: #fff; font-size: var(--text-small); }
+.webcam-flash { position: absolute; inset: 0; pointer-events: none; }
+.webcam-flash[data-taken] { animation: webcam-taken var(--ds-duration-slow) ease-out; }
+@keyframes webcam-taken { from { background: #fff9; } to { background: transparent; } }
+@media (prefers-reduced-motion: reduce) { .webcam-flash[data-taken] { animation: none; } }
+.webcam-status { margin: 0; text-align: center; }
+.webcam-controls { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); justify-content: center; }
+.add-products .add-shots { list-style: none; margin: var(--ds-space-2) 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--ds-space-2); justify-content: center; }
+.add-products .add-shots li { display: flex; align-items: center; gap: var(--ds-space-1); }
+.add-products .add-shots img { width: 72px; height: 72px; object-fit: cover; border-radius: var(--radius-control); border: 1px solid var(--line); }

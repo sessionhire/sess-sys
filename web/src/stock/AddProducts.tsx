@@ -28,6 +28,7 @@ import { shrinkPhoto } from '../photo-file.ts'
 import { productPhotoOf, Thumb } from '../Picture.tsx'
 import { useAccess } from '../role.ts'
 import { client } from '../sync.ts'
+import { useWebcam, Webcam } from './Webcam.tsx'
 import { StockViews } from '../Views.tsx'
 import { TrackingChoice } from './common.tsx'
 import { departmentIcon } from './kitIcon.ts'
@@ -149,6 +150,17 @@ export function AddProductsScreen({ view }: { view: View }) {
   const [typed, setTyped] = useState('')
   const [problem, setProblem] = useState('')
   const picker = useRef<HTMLInputElement>(null)
+  // On a laptop or desktop, its webcam: the photos of one item taken so far, sent together by Look this item up.
+  const webcam = useWebcam()
+  const [camOn, setCamOn] = useState(false)
+  const [shots, setShots] = useState<{ file: File; url: string }[]>([])
+  const dropShots = () => {
+    shots.forEach((s) => URL.revokeObjectURL(s.url))
+    setShots([])
+  }
+  const shotsNow = useRef(shots)
+  shotsNow.current = shots
+  useEffect(() => () => shotsNow.current.forEach((s) => URL.revokeObjectURL(s.url)), [])
 
   const start = async (files: File[], what = '') => {
     setProblem('')
@@ -179,26 +191,86 @@ export function AddProductsScreen({ view }: { view: View }) {
           is counted here: that's done with the labels, at the stocktake.
         </p>
         {!reads && why && <p className="hint">Photos can't be read just now: {why} You can still add products here, and fill them in yourself.</p>}
-        <div className="add-photo">
-          {/* The button is the file field's label, so it opens the phone's camera as any file field does. */}
-          <label className="button primary">
-            <Icon name="camera" />
-            Photograph an item
-            <input
-              ref={picker}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              multiple
-              className="sr-only"
-              onChange={(e) => {
-                const files = [...(e.target.files ?? [])]
-                e.target.value = ''
-                if (files.length) void start(files)
+        {webcam && camOn ? (
+          <>
+            <Webcam
+              onTake={(file) => setShots((now) => [...now, { file, url: URL.createObjectURL(file) }])}
+              onClose={() => {
+                setCamOn(false)
+                if (shots.length) {
+                  void start(shots.map((s) => s.file))
+                  dropShots()
+                }
               }}
-            />
-          </label>
-        </div>
+              canTake={shots.length < MOST_PRODUCT_PHOTOS}
+              status={
+                shots.length === 0
+                  ? "Hold the item up to the camera and take a photo, then one of its maker's label if it has one."
+                  : shots.length < MOST_PRODUCT_PHOTOS
+                    ? `${shots.length === 1 ? 'One photo' : 'Two photos'} of this item. Take its label too, or ${reads ? 'look it up' : 'fill it in'}.`
+                    : `Three photos is the most for one item: ${reads ? 'look it up' : 'fill it in'}.`
+              }
+            >
+              <button
+                type="button"
+                disabled={!shots.length}
+                onClick={() => {
+                  void start(shots.map((s) => s.file))
+                  dropShots()
+                }}
+              >
+                {reads ? 'Look this item up' : 'Fill this item in'}
+              </button>
+            </Webcam>
+            {shots.length > 0 && (
+              <ul className="add-shots" aria-label="Photos of this item">
+                {shots.map((s, n) => (
+                  <li key={s.url}>
+                    <img src={s.url} alt={n === 0 ? 'The item' : 'Another photo of it'} />
+                    <button
+                      type="button"
+                      className="icon-button"
+                      aria-label={`Take out photo ${n + 1}`}
+                      onClick={() => {
+                        URL.revokeObjectURL(s.url)
+                        setShots(shots.filter((x) => x !== s))
+                      }}
+                    >
+                      <Icon name="close" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        ) : (
+          <div className="add-photo">
+            {webcam && (
+              <button type="button" className="primary" onClick={() => setCamOn(true)}>
+                <Icon name="camera" />
+                Use the webcam
+              </button>
+            )}
+            {/* The button is the file field's label, so on a phone it opens the camera as any file field does; on a laptop, the files. */}
+            <label className={webcam ? 'button' : 'button primary'}>
+              <Icon name={webcam ? 'upload' : 'camera'} />
+              {webcam ? 'Upload photos' : 'Photograph an item'}
+              <input
+                ref={picker}
+                type="file"
+                accept="image/*"
+                capture={webcam ? undefined : 'environment'}
+                multiple
+                className="sr-only"
+                onChange={(e) => {
+                  const files = [...(e.target.files ?? [])]
+                  e.target.value = ''
+                  if (files.length) void start(files)
+                }}
+              />
+            </label>
+          </div>
+        )}
         <form
           className="grid-form typed-item"
           onSubmit={(e) => {
@@ -271,6 +343,8 @@ function CheckItem({ view, item }: { view: View; item: Item }) {
   const { run, error, refuse } = useAct()
   const more = useRef<HTMLInputElement>(null)
   const top = useRef<HTMLDivElement>(null)
+  const webcam = useWebcam()
+  const [camOn, setCamOn] = useState(false)
   const alike = item.alike.map((id) => w.models.find((m) => m.id === id)).filter((m): m is ModelView => !!m && !m.mistake)
   const r = item.reading
   useEffect(() => {
@@ -317,15 +391,21 @@ function CheckItem({ view, item }: { view: View; item: Item }) {
         {item.photos.map((p, n) => (
           <img key={n} src={p.url} alt={n === 0 ? 'The item' : 'Another photo of it'} />
         ))}
+        {item.photos.length < MOST_PRODUCT_PHOTOS && webcam && !camOn && (
+          <button type="button" onClick={() => setCamOn(true)}>
+            <Icon name="camera" />
+            {item.photos.length ? 'Photograph its label' : 'Use the webcam'}
+          </button>
+        )}
         {item.photos.length < MOST_PRODUCT_PHOTOS && (
           <label className="button">
-            <Icon name="camera" />
-            {item.photos.length ? 'Add a photo of its label' : 'Add a photo'}
+            <Icon name={webcam ? 'upload' : 'camera'} />
+            {webcam ? (item.photos.length ? 'Upload its label' : 'Upload a photo') : item.photos.length ? 'Add a photo of its label' : 'Add a photo'}
             <input
               ref={more}
               type="file"
               accept="image/*"
-              capture="environment"
+              capture={webcam ? undefined : 'environment'}
               className="sr-only"
               onChange={(e) => {
                 const files = [...(e.target.files ?? [])]
@@ -336,6 +416,17 @@ function CheckItem({ view, item }: { view: View; item: Item }) {
           </label>
         )}
       </div>
+
+      {webcam && camOn && (
+        <Webcam
+          onTake={(file) => {
+            setCamOn(false)
+            void addPhoto([file])
+          }}
+          onClose={() => setCamOn(false)}
+          status={item.photos.length ? "Hold its maker's label up to the camera." : 'Hold the item up to the camera.'}
+        />
+      )}
 
       {item.status === 'reading' && <p className="hint" role="status">Claude is reading this one and looking it up. You can fill it in meanwhile.</p>}
       {item.status === 'failed' && (
