@@ -323,8 +323,6 @@ const MIGRATIONS: string[] = [
   // A Yes in Google Calendar counts for its own day (ADR 0152): on an offer they've said yes to for some days, the days
   // they haven't answered, still asked and holding nothing.
   `ALTER TABLE offers ADD COLUMN IF NOT EXISTS asked jsonb NOT NULL DEFAULT '[]';`,
-  // A No on Google Calendar to booked days, noted with them kept booked (27 November 2026): those days' No is settled.
-  `ALTER TABLE offers ADD COLUMN IF NOT EXISTS noted_no jsonb NOT NULL DEFAULT '[]';`,
   // Each person's own invite for a job brought in from Google Calendar (ADR 0157), for offers made from now on. The ones
   // already on such jobs stay as they were, with none, and say why: 'before', made by the office's Offer while it was told
   // nothing is sent for such a job; 'organiser', brought in with the job from the guests the organiser invited. So this
@@ -371,6 +369,8 @@ const MIGRATIONS: string[] = [
   ALTER TABLE people ADD COLUMN IF NOT EXISTS trades_as text CHECK (trades_as IN ('sole-trader', 'company'));
   ALTER TABLE people ADD COLUMN IF NOT EXISTS vat_registered boolean;
   `,
+  // A No on Google Calendar to booked days, noted with them kept booked (27 November 2026): those days' No is settled.
+  `ALTER TABLE offers ADD COLUMN IF NOT EXISTS noted_no jsonb NOT NULL DEFAULT '[]';`,
 ]
 
 export const CREW: Module = { versionTable: 'crew_schema_version', migrations: MIGRATIONS }
