@@ -57,7 +57,8 @@ test('a new quote for a client at a venue worked before starts from what went ou
   await ready(office, '#quotes')
   await office.getByRole('link', { name: 'New quote' }).first().click()
   const form = office.getByRole('form', { name: 'New quote' })
-  await form.getByLabel("What's the job?").fill(`Summer gala ${id}`)
+  // A name not like the gala's, so the client and venue are what find it.
+  await form.getByLabel("What's the job?").fill(`Product launch ${id}`)
   await expect(form.getByRole('region', { name: 'Start from' }).getByRole('list', { name: 'Past jobs' })).toHaveCount(0)
   await form.getByLabel('Client').fill(`Liffey Brands ${id}`)
   await form.getByRole('combobox', { name: 'Venue' }).fill(`Round Room ${id}`)
@@ -108,4 +109,64 @@ test('a new quote for a client at a venue worked before starts from what went ou
   if (process.env.WALK) await office.screenshot({ path: process.env.WALK, fullPage: true })
   await again.getByRole('button', { name: 'Cancel' }).click()
   await expect(office).toHaveURL(/#jobs$/)
+})
+
+test("a job's own quote starts from a past gig like it, the most in common first", async ({ browser, request }) => {
+  const id = tag()
+  const at = new Date().toISOString()
+  const ahead = new Date(Date.now() + 20 * 86_400_000).toISOString().slice(0, 10)
+  const quoteLine = (lineId: string, l: object) => ({ id: lineId, ref: null, vat: '23', per: 'day', days: 1, ...l })
+  const past = (key: string, name: string, clientId: string, venueId: string, daysAgo: number, modelId: string) => [
+    { name: 'project.create', args: { id: `${key}${id}`, name, clientId, venueId, status: 'confirmed', notes: '' } },
+    { name: 'phase.add', args: { id: `ph${key}${id}`, projectId: `${key}${id}`, name: 'Show', start: dayAgo(daysAgo), end: dayAgo(daysAgo), venueId: null, notes: '' } },
+    {
+      name: 'quote.save',
+      args: { id: `q${key}${id}`, projectId: `${key}${id}`, discountPct: 0, notes: '', lines: [quoteLine(`l${key}${id}`, { kind: 'kit', what: `Kit ${modelId}`, group: 'Audio', qty: 2, unitCents: 1_000, modelId: `${modelId}${id}` })] },
+    },
+  ]
+  const setUp = [
+    { name: 'client.upsert', args: { id: `c${id}`, name: `Docklands Media ${id}`, contacts: [], notes: '' } },
+    { name: 'client.upsert', args: { id: `o${id}`, name: `Someone Else ${id}`, contacts: [], notes: '' } },
+    { name: 'venue.upsert', args: { id: `v${id}`, name: `Hall One ${id}`, address: '', notes: '' } },
+    { name: 'venue.upsert', args: { id: `w${id}`, name: `Hall Two ${id}`, address: '', notes: '' } },
+    { name: 'model.create', args: { id: `mic${id}`, name: `Radio mic ${id}`, department: 'audio', category: 'Microphones', tracking: 'bulk', isCase: false, valueCents: null, notes: '' } },
+    { name: 'model.create', args: { id: `spk${id}`, name: `Speaker ${id}`, department: 'audio', category: 'Speakers', tracking: 'bulk', isCase: false, valueCents: null, notes: '' } },
+    // Older but with the client, venue and name in common; newer with only the venue; newest with only the name.
+    ...past('all', `Annual awards ${id}`, `c${id}`, `v${id}`, 300, 'mic'),
+    ...past('venue', `Staff party ${id}`, `o${id}`, `v${id}`, 60, 'spk'),
+    ...past('name', `Annual awards dinner ${id}`, `o${id}`, `w${id}`, 30, 'spk'),
+    { name: 'project.create', args: { id: `next${id}`, name: `Annual awards ${id}`, clientId: `c${id}`, venueId: `v${id}`, status: 'enquiry', notes: '' } },
+    { name: 'phase.add', args: { id: `phnext${id}`, projectId: `next${id}`, name: 'Show', start: ahead, end: ahead, venueId: null, notes: '' } },
+  ].map((m, i) => ({ ...m, id: `setup${id}${i}`, createdAt: at }))
+  const pushed = await request.post('/api/sync/push', { data: { clientId: `office${id}`, mutations: setUp } })
+  const res = await pushed.json()
+  expect(res.results.map((r: { status: string }) => r.status)).toEqual(setUp.map(() => 'applied'))
+
+  const office = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await ready(office, `#jobs/next${id}/quote`)
+  const start = office.getByRole('group', { name: 'Start from a past gig' })
+  const found = start.getByRole('list', { name: 'Past jobs' }).getByRole('button')
+  await expect(found).toHaveCount(3)
+  await expect(found.nth(0)).toContainText(`Annual awards ${id}`)
+  await expect(found.nth(0)).toContainText('Same client, venue and name')
+  await expect(found.nth(1)).toContainText(`Annual awards dinner ${id}`)
+  await expect(found.nth(1)).toContainText('Similar name')
+  await expect(found.nth(2)).toContainText('Same venue')
+  if (process.env.SHOTS) await start.screenshot({ path: 'e2e/screens/past-gig.png' })
+  await found.nth(0).click()
+  await expect(start.getByRole('region', { name: 'Lines to add' })).toContainText(`Radio mic ${id}`)
+  await start.getByRole('button', { name: /^Start quote with 1 line/ }).click()
+  const draft = office.getByRole('form', { name: 'Version 1, a draft' })
+  await expect(draft).toContainText(`Radio mic ${id}`)
+
+  // With lines on it, another gig's lines are added after them, from under More.
+  await draft.getByRole('button', { name: 'More to add…' }).click()
+  await draft.getByRole('button', { name: 'Add from a past gig' }).click()
+  const more = draft.getByRole('group', { name: 'Start from a past gig' })
+  await more.getByRole('button', { name: new RegExp(`Staff party ${id}`) }).click()
+  await more.getByRole('button', { name: /^Add 1 line to the quote/ }).click()
+  await expect(more).toHaveCount(0)
+  await expect(draft).toContainText(`Radio mic ${id}`)
+  await expect(draft).toContainText(`Speaker ${id}`)
+  await expect(office.locator('.conn')).toHaveText('Up to date')
 })

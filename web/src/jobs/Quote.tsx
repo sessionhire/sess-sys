@@ -23,6 +23,8 @@ import {
   lineCostOf,
   ownKitUncosted,
   quoteMargin,
+  suggestionLine,
+  workDays,
 } from '@sh/shared'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -36,6 +38,8 @@ import { MarginWords } from './QuoteLine.tsx'
 import { Lines, QuoteSheet, QuoteSheetPage, Totals } from './QuoteSheet.tsx'
 import { InCurrentRms, NewVersion, nextRecord, Records } from './QuoteRecords.tsx'
 import { Draft } from './QuoteDraft.tsx'
+import { FromPastGig } from './PastJobs.tsx'
+import { addKitFromQuote, kitToAdd } from './Kit.tsx'
 import { DeleteQuote } from './QuoteDelete.tsx'
 import { Emails, SendQuote } from './QuoteEmail.tsx'
 import { useEmailAgainAsked } from './quoteSend.ts'
@@ -365,6 +369,7 @@ function SinceBefore({ q, versions }: { q: QuoteView; versions: QuoteView[] }) {
 /** With no quote yet: one built from the job, which the office then changes. */
 function FirstQuote({ view, job, plain }: { view: View; job: JobView; plain?: boolean }) {
   const m = view.money
+  const today = useToday()
   const { run, error } = useAct()
   const source = m.sourceOf(job.id)
   const unpriced = source.kit.filter((k) => m.productPrice(k.modelId) === undefined).length
@@ -407,6 +412,19 @@ function FirstQuote({ view, job, plain }: { view: View; job: JobView; plain?: bo
           Start one empty
         </button>
       </div>
+      {/* Or from a past gig like this one (Colly, 27 November 2026), its kit going on the job's kit list too, as New quote's does (ADR 0102). */}
+      <FromPastGig
+        view={view}
+        job={job}
+        days={workDays(job)}
+        today={today}
+        adding={(words) => `Start quote with ${words}`}
+        onAdd={async (picked) => {
+          const lines = picked.map((x) => suggestionLine(x.s, newId())).slice(0, MAX_LINES)
+          await client.mutate('quote.save', { id: newId(), projectId: job.id, lines, discountPct: discount ?? 0, notes: '' })
+          await addKitFromQuote(job.id, kitToAdd(view, lines, job.id))
+        }}
+      />
     </section>
   )
 }

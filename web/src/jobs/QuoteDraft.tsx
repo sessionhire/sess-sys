@@ -73,7 +73,8 @@ import { useToday } from '../view.ts'
 import { glideTo } from '../glide.ts'
 import { useUnderTop } from '../useUnderTop.ts'
 import { usePhone } from '../foot.tsx'
-import { MailOnQuote, useClaude, type Advice } from './Claude.tsx'
+import { MailOnQuote, useClaude, type Advice, type Offered } from './Claude.tsx'
+import { FromPastGig } from './PastJobs.tsx'
 import { useLastCharged } from './rms.ts'
 import { QuotePill } from './QuoteStatus.tsx'
 import { checkLine, num, sameLine, toDraft, type LineDraft } from './lineDraft.ts'
@@ -300,7 +301,7 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
       if (!next.delete(id)) next.add(id)
       return next
     })
-  const [adding, setAddingTo] = useState<'kit' | 'crew' | 'package' | 'transport' | 'save-package'>()
+  const [adding, setAddingTo] = useState<'kit' | 'crew' | 'package' | 'transport' | 'save-package' | 'past'>()
   // Kit lines added since Add kit was pressed, while its picker stays open for the next.
   const [kitPicks, setKitPicks] = useState(0)
   const setAdding = (to: typeof adding) => {
@@ -768,6 +769,11 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
     ])
     if (a.discount && a.advice.discountPct !== null) setDiscount(String(a.advice.discountPct))
   }
+  // A past gig's lines (Colly, 27 November 2026), after those already on, as if typed.
+  const takePast = (picked: Offered[]) => {
+    setLines((ls) => [...ls, ...picked.map((x) => toDraft(suggestionLine(x.s, newId())))].slice(0, MAX_LINES))
+    setAdding(undefined)
+  }
   // "Not saved yet" leads to what stops it: the line opens, or the terms field takes the focus, and its fault is said.
   const goToProblem = () => {
     if (problemKey === undefined) return
@@ -999,7 +1005,9 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
         )}
         {claude.offered && <MailOnQuote view={view} projectId={job.id} jobDays={days} lines={asked} discountPct={pctOk ? pct : 0} onTake={takeAdvice} />}
 
-        {lines.length === 0 && <Empty>No lines yet. Add kit, crew or anything else the quote is for.</Empty>}
+        {lines.length === 0 && <Empty>No lines yet. Add kit, crew or anything else the quote is for, or start from a past gig.</Empty>}
+        {/* A past gig like this one, the most in common first (Colly, 27 November 2026): open on an empty quote, under More once it has lines. */}
+        {lines.length === 0 && <FromPastGig view={view} job={job} days={days} today={today} adding={(words) => `Add ${words} to the quote`} onAdd={takePast} />}
         {/* Each band of groups (kit, crew, the rest) is put in the office's order by dragging a department's grip, as the Board's
             cards are (Colly, 18 November 2026); a group never leaves its band. */}
         {groupBands(lines).map((band, b) => (
@@ -1145,6 +1153,8 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
             </div>
           ) : adding === 'package' ? (
             <AddPackage packages={m.packages} onAdd={addPackage} onCancel={() => setAdding(undefined)} />
+          ) : adding === 'past' && lines.length > 0 ? (
+            <FromPastGig view={view} job={job} days={days} today={today} adding={(words) => `Add ${words} to the quote`} onAdd={takePast} onCancel={() => setAdding(undefined)} />
           ) : adding === 'save-package' ? (
             <PackageEditor view={view} start={kitStart()} onDone={() => setAdding(undefined)} />
           ) : adding === 'transport' ? (
@@ -1187,6 +1197,12 @@ export function Draft({ q, view, job, onPrint, printing }: { q: QuoteView; view:
                   <Icon name="add" />
                   Add words
                 </button>
+                {lines.length > 0 && (
+                  <button type="button" onClick={() => setAdding('past')} disabled={full}>
+                    <Icon name="add" />
+                    Add from a past gig
+                  </button>
+                )}
                 {lines.some((l) => l.kind === 'kit' && l.modelId) && (
                   <button type="button" className="link" onClick={() => setAdding('save-package')}>
                     Save kit as package
