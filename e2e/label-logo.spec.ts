@@ -31,7 +31,8 @@ const PURE = (i: HTMLImageElement) => {
 test('the logo and a cable length with its colour go on cable labels', async ({ browser }) => {
   const context = await browser.newContext({ viewport: phoneSize })
   const page = await context.newPage()
-  const name = `XLR 10m ${id}`
+  // The id goes before the length: a random one such as "6m2x" reads as a length of its own when last.
+  const name = `XLR ${id} 10m`
   const res = await context.request.post('/api/sync/push', {
     data: {
       clientId: `logo-${id}`,
