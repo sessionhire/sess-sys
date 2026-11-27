@@ -85,4 +85,9 @@ first card now offers **Use the webcam** beside **Upload photos**: the live pict
 the right way round), **Take photo**, the photos of this item so far, each with ×, and **Look this item up**, which
 sends up to three as one item, as picking several files does. The camera stays on for the next item; closing it with
 photos taken starts them rather than losing them. An item being checked gets **Photograph its label**, which takes one
-and closes. Phones keep the one button that opens the camera. The freelancers' link pages don't have the webcam yet.
+and closes. Phones keep the one button that opens the camera.
+
+The freelancers' link page `/f/<link>/add` got the same in 1.241.0 (PR #458), at Colly's ask: its hashed script
+offers **Use the webcam** on a laptop with a camera, takes up to three photos with thumbnails (data: images, which the
+page's policy allows) each with ×, and sends them with any uploaded ones through the same shrinking. The camera's
+picture is a MediaStream on the video, which the page's `default-src 'none'` doesn't stop.
