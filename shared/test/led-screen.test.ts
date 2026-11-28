@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { lineMark, linesByGroup, looksLikePanel, needsPrice, panelPitch, panelWords, quoteLine, setCents, stockCommandSchemas, type PanelFacts, type QuoteLine } from '../src/index.ts'
-import { gridFor, lengthsFor, liftFromName, panelChoices, screenFacts, screenIncludes, screenPlan, screenWhat, standsOn, trussFamilies, waysFromName, type ScreenProduct } from '../src/led-screen.ts'
+import { gridFor, lengthsFor, liftFromName, panelChoices, screenFacts, screenIncludes, screenPlan, screenWhat, standsOn, trussFamilies, waysFromName, type PlanLookups, type ScreenPicks, type ScreenProduct } from '../src/led-screen.ts'
 
 /**
  * The LED screen builder's sums (ADR 0207), against a stock list named the way a hire company's really is: lengths in
- * the names, a maker and a series for a panel, a typing slip in a motor control.
+ * the names, a maker and a series for a panel, a typing slip in a motor control. Its data lines, the cables for them and
+ * fibre to the screen are ADR 0208.
  */
 
 const product = (name: string, more: Partial<ScreenProduct> = {}): ScreenProduct => ({
@@ -159,7 +160,7 @@ describe('kit found by what it is called', () => {
 describe('a hung screen', () => {
   const plan = screenPlan(ask(10, 6, 'hung'), stock, {}, look)
   it('lists what it takes, each with why', () => {
-    expect(plan.rows.map((r) => r.part)).toEqual(['panels', 'bars', 'truss', 'motors', 'control', 'processor', 'distro'])
+    expect(plan.rows.map((r) => r.part)).toEqual(['panels', 'bars', 'truss', 'motors', 'control', 'processor', 'data', 'distro'])
     expect(items(plan, 'panels')).toEqual([[absen.id, 60]])
     expect(items(plan, 'bars')).toEqual([[id('absen Fly Bar'), 10]])
     expect(row(plan, 'bars').why).toBe('One for each column of panels, to hang them from')
@@ -195,7 +196,7 @@ describe('a hung screen', () => {
   })
   it('sizes the processor by its pixels and the distro by its circuits', () => {
     expect(items(plan, 'processor')).toEqual([[id('Novastar vx4s Processor'), 1]])
-    expect(row(plan, 'processor').why).toBe('Drives 2.3 million pixels from 4 ports; this screen has 983,040')
+    expect(row(plan, 'processor').why).toBe('Drives 2.3 million pixels from 4 ports; this screen has 983,040 in 2 data lines')
     expect(items(plan, 'distro')).toEqual([[id('SES 18 way video distro'), 1]])
     expect(row(plan, 'distro').why).toBe('18 ways; this screen takes 4 circuits of 16 A')
     // 24 by 12 panels is 3,072 by 1,536: 4.7 million pixels, more than one of these drives.
@@ -214,13 +215,13 @@ describe('a hung screen', () => {
     expect(driven(40, 20)).toEqual([6, 'One drives a picture 3,840 pixels wide at most and this screen is 5,120: 6, 3 across and 2 down, each driving part of it'])
     expect(driven(32, 4, 2)).toEqual([4, 'One drives a picture 3,840 pixels wide at most and each of these screens is 4,096: 2 side by side for every screen, each driving part of it'])
     // Several screens share one while its pixels, its ports and the room in its picture last.
-    expect(driven(10, 6, 2)).toEqual([1, 'Drives 2.3 million pixels from 4 ports; these screens have 1,966,080'])
+    expect(driven(10, 6, 2)).toEqual([1, 'Drives 2.3 million pixels from 4 ports; these screens have 1,966,080 in 4 data lines'])
     expect(driven(10, 6, 3)).toEqual([2, 'One drives 2.3 million pixels, which is 2 of these screens at 983,040 each'])
     expect(driven(12, 8, 2)).toEqual([2, 'One drives 2.3 million pixels, which is one of these screens at 1,572,864 each'])
     // An MCTRL300's picture is 2,048 by 1,200 at most. Two screens of 1,152 by 512 go in it one above the other. Two of
     // 1,040 by 624 are within its pixels and its ports, and fit neither beside nor above each other.
     const small = 'Novastar MCTRL300 sending box'
-    expect(driven(9, 4, 2, small)).toEqual([1, 'Drives 1.3 million pixels from 2 ports; these screens have 1,179,648'])
+    expect(driven(9, 4, 2, small)).toEqual([1, 'Drives 1.3 million pixels from 2 ports; these screens have 1,179,648 in 2 data lines'])
     const coarse = { ...absen, panel: { ...HALF, pixelsW: 104, pixelsH: 104 } }
     const tight = row(screenPlan(ask(10, 6, 'hung', 2, coarse), [...stock, product(small, video)], { processor: id(small) }, look), 'processor')
     expect([tight.items[0]!.qty, tight.why]).toEqual([2, 'One drives a picture up to 2,048 × 1,200 pixels, which has room for one of these screens at 1,040 × 624'])
@@ -231,15 +232,15 @@ describe('a hung screen', () => {
   it('reads a processor by its whole name, with what its own sheet says it drives', () => {
     const why = (name: string) => row(screenPlan(ask(10, 6, 'hung'), [...stock, product(name, video)], { processor: id(name) }, look), 'processor').why
     // A VX400s is the older unit, not a VX400; an MCTRL660 PRO has six ports, not the MCTRL660's four.
-    expect(why('Novastar VX400s')).toBe('Drives 2.3 million pixels from 4 ports; this screen has 983,040')
-    expect(why('Novastar VX400')).toBe('Drives 2.6 million pixels from 4 ports; this screen has 983,040')
-    expect(why('Novastar VX400 Pro')).toBe('Drives 2.6 million pixels from 4 ports; this screen has 983,040')
-    expect(why('Novastar MCTRL660 PRO')).toBe('Drives 2.3 million pixels from 6 ports; this screen has 983,040')
-    expect(why('Novastar MCTRL660')).toBe('Drives 2.3 million pixels from 4 ports; this screen has 983,040')
-    expect(why('Novastar MCTRL600')).toBe('Drives 2.3 million pixels from 4 ports; this screen has 983,040')
+    expect(why('Novastar VX400s')).toBe('Drives 2.3 million pixels from 4 ports; this screen has 983,040 in 2 data lines')
+    expect(why('Novastar VX400')).toBe('Drives 2.6 million pixels from 4 ports; this screen has 983,040 in 2 data lines')
+    expect(why('Novastar VX400 Pro')).toBe('Drives 2.6 million pixels from 4 ports; this screen has 983,040 in 2 data lines')
+    expect(why('Novastar MCTRL660 PRO')).toBe('Drives 2.3 million pixels from 6 ports; this screen has 983,040 in 2 data lines')
+    expect(why('Novastar MCTRL660')).toBe('Drives 2.3 million pixels from 4 ports; this screen has 983,040 in 2 data lines')
+    expect(why('Novastar MCTRL600')).toBe('Drives 2.3 million pixels from 4 ports; this screen has 983,040 in 2 data lines')
     // 3840 by 2160, as its sheet has it.
-    expect(why('Novastar MCTRL4K')).toBe('Drives 8.3 million pixels from 16 ports; this screen has 983,040')
-    expect(why('Novastar VX4S-N')).toBe('Drives 2.3 million pixels from 4 ports; this screen has 983,040')
+    expect(why('Novastar MCTRL4K')).toBe('Drives 8.3 million pixels from 16 ports; this screen has 983,040 in 2 data lines')
+    expect(why('Novastar VX4S-N')).toBe('Drives 2.3 million pixels from 4 ports; this screen has 983,040 in 2 data lines')
   })
   it('holds the MX range to what its maker says today: the screen it sends, and what one of its ports carries', () => {
     const driven = (cols: number, rows: number, count: number, name: string) => {
@@ -252,21 +253,21 @@ describe('a hung screen', () => {
     expect(driven(33, 4, 1, 'Novastar MX20')).toEqual([2, 'One drives a picture 4,096 pixels wide at most and this screen is 4,224: 2 side by side, each driving part of it'])
     expect(driven(4, 33, 1, 'Novastar KU20')).toEqual([2, 'One drives a picture 4,096 pixels tall at most and this screen is 4,224: 2, one above the other, each driving part of it'])
     // 549 panels are just inside the MX40's 9 million pixels, which its first sheet gave as 8.8 million.
-    expect(driven(61, 9, 1, 'Novastar MX40')).toEqual([1, 'Drives 9 million pixels from 20 ports; this screen has 8,994,816'])
+    expect(driven(61, 9, 1, 'Novastar MX40')).toEqual([1, 'Drives 9 million pixels from 20 ports; this screen has 8,994,816 in 16 data lines'])
     // A 5 by 2 metre screen is 655,360 pixels: one data line from an MX, whose port carries 659,722, and two from an older
     // unit, sized at 650,000 a port. So nine of them share one MX30, and five a VX1000 with the same ten ports.
-    expect(driven(10, 4, 9, 'Novastar MX30')).toEqual([1, 'Drives 6.5 million pixels from 10 ports; these screens have 5,898,240'])
+    expect(driven(10, 4, 9, 'Novastar MX30')).toEqual([1, 'Drives 6.5 million pixels from 10 ports; these screens have 5,898,240 in 9 data lines'])
     expect(driven(10, 4, 9, 'Novastar VX1000 processor')).toEqual([2, 'One has 10 ports, which is 5 of these screens at 2 data lines each'])
   })
   it('knows the bigger processors we hold by whatever they are called, and sends the smallest of ours that drives the screen whole', () => {
     const with_ = (name: string, more: Partial<ScreenProduct> = video) => row(screenPlan(ask(10, 6, 'hung'), [...stock, product(name, more)], { processor: id(name) }, look), 'processor')
-    expect(with_('Novastar MX30').why).toBe('Drives 6.5 million pixels from 10 ports; this screen has 983,040')
-    for (const name of ['MX40', 'Novastar MX40 Pro', 'mx 40pro']) expect(with_(name).why).toBe('Drives 9 million pixels from 20 ports; this screen has 983,040')
-    expect(with_('MX20').why).toBe('Drives 3.9 million pixels from 6 ports; this screen has 983,040')
-    expect(with_('Novastar KU20').why).toBe('Drives 3.9 million pixels from 6 ports; this screen has 983,040')
-    for (const name of ['UHD Junior', 'NovaPro UHD Jr', 'Nova star pro UHD jr']) expect(with_(name).why).toBe('Drives 10.4 million pixels from 16 ports; this screen has 983,040')
-    expect(with_('NovaPro UHD').why).toBe('Drives 8.8 million pixels from 16 ports; this screen has 983,040')
-    expect(with_('NovaPro HD').why).toBe('Drives 2.3 million pixels from 4 ports; this screen has 983,040')
+    expect(with_('Novastar MX30').why).toBe('Drives 6.5 million pixels from 10 ports; this screen has 983,040 in 2 data lines')
+    for (const name of ['MX40', 'Novastar MX40 Pro', 'mx 40pro']) expect(with_(name).why).toBe('Drives 9 million pixels from 20 ports; this screen has 983,040 in 2 data lines')
+    expect(with_('MX20').why).toBe('Drives 3.9 million pixels from 6 ports; this screen has 983,040 in 2 data lines')
+    expect(with_('Novastar KU20').why).toBe('Drives 3.9 million pixels from 6 ports; this screen has 983,040 in 2 data lines')
+    for (const name of ['UHD Junior', 'NovaPro UHD Jr', 'Nova star pro UHD jr']) expect(with_(name).why).toBe('Drives 10.4 million pixels from 16 ports; this screen has 983,040 in 2 data lines')
+    expect(with_('NovaPro UHD').why).toBe('Drives 8.8 million pixels from 16 ports; this screen has 983,040 in 2 data lines')
+    expect(with_('NovaPro HD').why).toBe('Drives 2.3 million pixels from 4 ports; this screen has 983,040 in 2 data lines')
     // An MX2000 Pro is built from cards, so what it drives is no one figure: it is offered, to be checked.
     expect(with_('Novastar MX2000 Pro').check).toBe("Check it drives 983,040 pixels: what it loads isn't known here.")
     // "MX30" says neither NovaStar nor processor: among the video kit it's known by its model, and elsewhere it's something else.
@@ -281,7 +282,7 @@ describe('a hung screen', () => {
     // A small screen keeps a small one. One 16 m wide is past a VX4S's picture: one MX30, not two VX4S.
     expect(sent(10, 6)).toEqual([[id('Novastar vx4s Processor'), 1]])
     expect(sent(32, 4)).toEqual([[id('MX30'), 1]])
-    expect(row(screenPlan(ask(32, 4, 'hung'), ours, {}, look), 'processor').why).toBe('Drives 6.5 million pixels from 10 ports; this screen has 2,097,152')
+    expect(row(screenPlan(ask(32, 4, 'hung'), ours, {}, look), 'processor').why).toBe('Drives 6.5 million pixels from 10 ports; this screen has 2,097,152 in 4 data lines')
     // 450 panels are 7.4 million pixels, past the MX30: the MX40 Pro. 576 are 9.4 million, past that too: the UHD Jr.
     expect(sent(30, 15)).toEqual([[id('MX40 Pro'), 1]])
     expect(sent(36, 16)).toEqual([[id('UHD Junior'), 1]])
@@ -305,11 +306,11 @@ describe('a hung screen', () => {
     ]
     const why = (name: string) => row(screenPlan(ask(10, 6, 'hung'), list, { processor: id(name) }, look), 'processor').why
     expect(names.map(why)).toEqual([
-      'Drives 2.3 million pixels from 4 ports; this screen has 983,040',
-      'Drives 2.3 million pixels from 4 ports; this screen has 983,040',
-      'Drives 6.5 million pixels from 10 ports; this screen has 983,040',
-      'Drives 9 million pixels from 20 ports; this screen has 983,040',
-      'Drives 10.4 million pixels from 16 ports; this screen has 983,040',
+      'Drives 2.3 million pixels from 4 ports; this screen has 983,040 in 2 data lines',
+      'Drives 2.3 million pixels from 4 ports; this screen has 983,040 in 2 data lines',
+      'Drives 6.5 million pixels from 10 ports; this screen has 983,040 in 2 data lines',
+      'Drives 9 million pixels from 20 ports; this screen has 983,040 in 2 data lines',
+      'Drives 10.4 million pixels from 16 ports; this screen has 983,040 in 2 data lines',
     ])
     // The fibre converter drives nothing, with its number in its name or without.
     expect(row(screenPlan(ask(10, 6, 'hung'), list, {}, look), 'processor').choices.map((c) => c.name).sort()).toEqual([...names].sort())
@@ -363,6 +364,7 @@ describe('a hung screen', () => {
       ['motors', 'No motor found in the stock list.', 0],
       ['control', 'No motor control found in the stock list.', 0],
       ['processor', 'No LED processor found in the stock list.', 0],
+      ['data', 'No data cable found in the stock list.', 0],
       ['distro', 'No video power distro found in the stock list.', 0],
     ])
   })
@@ -371,7 +373,7 @@ describe('a hung screen', () => {
 describe('a ground-stacked screen', () => {
   const plan = screenPlan(ask(10, 6, 'ground'), stock, {}, look)
   it('stands against truss uprights on base plates, counted by the tipping point solver', () => {
-    expect(plan.rows.map((r) => r.part)).toEqual(['panels', 'bars', 'truss', 'plates', 'processor', 'distro'])
+    expect(plan.rows.map((r) => r.part)).toEqual(['panels', 'bars', 'truss', 'plates', 'processor', 'data', 'distro'])
     // H30V comes first here: it's the truss the base plate is made for.
     expect(row(plan, 'truss').chosen).toBe('h30v')
     expect(items(plan, 'truss')).toEqual([[id('3M H30V Truss'), 3]])
@@ -422,6 +424,227 @@ describe('a ground-stacked screen', () => {
   it('keeps the wind to itself when the base plate has no weight', () => {
     const light = stock.map((m) => (m.name === 'H30V 1m base plate' ? { ...m, weightKg: null } : m))
     expect(screenPlan(ask(10, 6, 'ground'), light, {}, look).stands[1]).toBe("Stands without ballast indoors. The wind it holds to isn't worked out: the base plate's weight isn't on its product.")
+  })
+})
+
+describe("a screen's data lines, and what takes them to it", () => {
+  // The processors, the data cables, the fibre and its converter by their names in the stock list on 28 November 2026, with
+  // the kit beside them that is none of these.
+  const filed = { department: 'video', category: 'LED Processor' } as const
+  const cables = { department: 'other', category: 'Cables' } as const
+  const [vx4s, proHd, mx30, mx40, uhd] = ['Novastar VX4S', 'Novastar pro HD', 'Novastar MX30', 'Novastar MX40', 'Novastar UHD Jnr'].map((name) => product(name, filed)) as [ScreenProduct, ScreenProduct, ScreenProduct, ScreenProduct, ScreenProduct]
+  const reel = product('Cat 5 reel', { ...cables, lengthM: 100 })
+  const cat6 = product('Cat6 Cable', { department: 'other', category: '', lengthM: 50 })
+  // Two products of one name, told apart by their lengths.
+  const cat30 = product('cat5 cable', { id: 'cat5-30', department: 'audio', category: 'Audio', lengthM: 30 })
+  const cat20 = product('cat5 cable', { id: 'cat5-20', ...cables, lengthM: 20 })
+  const cvt = product('Novastar CVT Pro', { department: 'video', category: '' })
+  const fibre = product('Single Mode Fibre', { ...video, lengthM: 100 })
+  const beside = [
+    product('FOH Multicore CAT 6', cables),
+    product('Absen Data Link', { ...video, category: 'Cables' }),
+    product('Luminex ethernet - dmx node 8', { department: 'lighting' }),
+    product('Lx Data Rack Main', { department: 'audio' }),
+    product('data rack', { department: 'lighting' }),
+    product('SDI Reel', { ...video, lengthM: 100 }),
+    product('SM Fiber Patch LC/LC', { ...video, category: 'Cables', lengthM: 0.5 }),
+    product('Neutrik Opticon Duo Panel Socket', { ...video, category: 'Cables' }),
+  ]
+  const rest = stock.filter((m) => !/processor/i.test(m.name))
+  /** The stock list without the converter, and with it and the fibre it runs on. */
+  const held = [...rest, vx4s, proHd, mx30, mx40, uhd, reel, cat6, cat30, cat20, ...beside]
+  const wired = [...held, cvt, fibre]
+  const planOf = (cols: number, rows: number, more: { count?: number; fibre?: boolean; list?: ScreenProduct[]; picks?: ScreenPicks; look?: PlanLookups; panel?: ScreenProduct } = {}) =>
+    screenPlan({ ...ask(cols, rows, 'hung', more.count ?? 1, more.panel ?? absen), ...(more.fibre ? { fibre: true } : {}) }, more.list ?? held, more.picks ?? {}, more.look ?? {})
+  const data = (plan: ReturnType<typeof screenPlan>) => [plan.lines, items(plan, 'data'), row(plan, 'data').why]
+
+  it('counts them as a screen is cabled: whole columns, as many to a line as it carries', () => {
+    // A 4 by 2.5 metre screen is 655,360 pixels, over the 650,000 a line carries: two lines of four columns.
+    expect(data(planOf(8, 5))).toEqual([2, [[reel.id, 2]], 'One for each of the 2 data lines, from the processor to the screen. A line takes 4 columns of panels.'])
+    expect(data(planOf(16, 7))).toEqual([4, [[reel.id, 4]], 'One for each of the 4 data lines, from the processor to the screen. A line takes 4 columns of panels.'])
+    expect(data(planOf(2, 2))).toEqual([1, [[reel.id, 1]], 'One data line, from the processor to the screen. It takes the whole screen.'])
+    // 32 columns at three to a line: ten lines of three and one of two.
+    expect(data(planOf(32, 12))).toEqual([11, [[reel.id, 11]], 'One for each of the 11 data lines, from the processor to the screen. A line takes up to 3 columns of panels.'])
+    expect(data(planOf(24, 20))).toEqual([12, [[reel.id, 12]], 'One for each of the 12 data lines, from the processor to the screen. A line takes 2 columns of panels.'])
+    expect(planOf(8, 5).working).toContain('A data line is counted at 650,000 pixels, for 60 Hz in 8-bit colour, as a tidy block of whole panels: whole columns, cut shorter only where a column is more than one line carries or that saves a processor.')
+    expect(planOf(8, 5).working).toContain('The links between panels, mains cables, slings and shackles are not counted: add what the job takes as kit.')
+  })
+  it('cuts the columns shorter only where whole columns are more than its ports', () => {
+    // A column 21 panels tall is 344,064 pixels, so a line carries one: 25 lines, and an MX40 has 20 ports. In halves a
+    // line carries three half columns: 18 lines.
+    const tall = planOf(25, 21)
+    expect(items(tall, 'processor')).toEqual([[mx40.id, 1]])
+    expect(row(tall, 'processor').why).toBe('Drives 9 million pixels from 20 ports; this screen has 8,601,600 in 18 data lines')
+    expect(row(tall, 'processor').check).toBeUndefined()
+    expect(data(tall)).toEqual([18, [[reel.id, 18]], 'One for each of the 18 data lines, from the processor to the screen. A line takes a block of up to 3 panels across by 11 down.'])
+    // A UHD Jr has 16 ports: the columns in thirds, five to a line.
+    expect(data(planOf(25, 21, { picks: { processor: uhd.id } }))).toEqual([15, [[reel.id, 15]], 'One for each of the 15 data lines, from the processor to the screen. A line takes a block of up to 5 panels across by 7 down.'])
+    // Nine columns eight tall are three lines in whole columns. A sending box with two ports takes them as two lines of whole rows.
+    const box = product('Novastar MCTRL300 sending box', video)
+    const rows = planOf(9, 8, { list: [...held, box], picks: { processor: box.id } })
+    expect(row(rows, 'processor').why).toBe('Drives 1.3 million pixels from 2 ports; this screen has 1,179,648 in 2 data lines')
+    expect(row(rows, 'data').why).toBe('One for each of the 2 data lines, from the processor to the screen. A line takes 4 rows of panels.')
+  })
+  it('lets an MX line carry on from one column into the next only where that is what fits, and sends the processor that needs no such thing', () => {
+    // A 16 by 6 metre screen is 11 lines in whole columns. An MX40 has the ports; an MX30 has ten, which is what its
+    // 384 panels come to at 40 to a line.
+    expect(items(planOf(32, 12), 'processor')).toEqual([[mx40.id, 1]])
+    const on = planOf(32, 12, { picks: { processor: mx30.id } })
+    expect(row(on, 'processor').why).toBe('Drives 6.5 million pixels from 10 ports; this screen has 6,291,456 in 10 data lines')
+    expect(row(on, 'processor').check).toBe('Fits the 10 ports it has only if a data line carries on from one column into part of the next: in whole columns this screen takes 11 lines.')
+    expect(data(on)).toEqual([10, [[reel.id, 10]], 'One for each of the 10 data lines, from the processor to the screen. A line takes up to 40 panels, carrying on from one column into part of the next.'])
+    expect(on.working).toContain("A data line is counted at 659,722 pixels, for 60 Hz in 8-bit colour, by its panels' own pixels: this processor doesn't ask for a line to be a tidy block of panels.")
+    expect(planOf(32, 12).working).toContain('A data line is counted at 659,722 pixels, for 60 Hz in 8-bit colour, as a tidy block of whole panels: whole columns, cut shorter only where a column is more than one line carries or that saves a processor.')
+    // An older unit with the same ten ports counts each port's panels as a rectangle, so its lines never carry on: two of it.
+    const older = product('Novastar VX1000 processor', video)
+    const two = planOf(32, 12, { list: [...held, older], picks: { processor: older.id } })
+    expect([row(two, 'processor').items[0]!.qty, row(two, 'processor').why]).toEqual([2, 'One has 10 ports and this screen takes 11 data lines: 2 side by side, each driving part of it'])
+    expect(data(two)).toEqual([12, [[reel.id, 12]], 'One for each of the 12 data lines, from the processor to the screen. A line takes up to 3 columns of panels.'])
+  })
+  it('counts a panel narrower than 128 pixels as that wide on an MX line, and by its own pixels on an older one', () => {
+    const narrow = { ...stock[1]!, panel: { widthMm: 500, heightMm: 1000, pixelsW: 104, pixelsH: 208 } }
+    // A column six tall is 129,792 pixels, five to a line. An MX30 counts each panel 128 wide: 159,744, four to a line.
+    const mx = planOf(24, 6, { panel: narrow })
+    expect(items(mx, 'processor')).toEqual([[mx30.id, 1]])
+    expect(data(mx)).toEqual([6, [[reel.id, 6]], 'One for each of the 6 data lines, from the processor to the screen. A line takes 4 columns of panels.'])
+    expect(mx.working).toContain('This processor counts a panel narrower than 128 pixels as 128 wide, so each of these takes more of a line than its own 104.')
+    const older = planOf(24, 6, { panel: narrow, picks: { processor: uhd.id } })
+    expect(data(older)).toEqual([5, [[reel.id, 5]], 'One for each of the 5 data lines, from the processor to the screen. A line takes up to 5 columns of panels.'])
+    expect(older.working.join(' ')).not.toMatch(/narrower/)
+  })
+  it('finds a data cable by what it is called, the longest first, and none longer than a line runs', () => {
+    const more = [
+      product('network lead 10m', cables),
+      product('Ethercon cable', cables),
+      product('Cat6 drum 150m', cables),
+      product('RJ45 coupler', cables),
+      product('Ethercon barrel', cables),
+      product('Cat5 tester', cables),
+      product('Cat6 patch panel', cables),
+    ]
+    // One whose length isn't known comes last. The multicore, the link between panels, the node and the racks are no data cable.
+    expect(row(planOf(8, 5, { list: [...held, ...more] }), 'data').choices.map((c) => c.name)).toEqual(['Cat 5 reel 100 m', 'Cat6 Cable 50 m', 'cat5 cable 30 m', 'cat5 cable 20 m', 'network lead 10m', 'Ethercon cable'])
+    const only = planOf(8, 5, { list: [...rest, vx4s, product('Ethercon cable', cables)] })
+    expect(items(only, 'data')).toEqual([[id('Ethercon cable'), 2]])
+    expect(row(only, 'data').check).toBe("Check it reaches: its length isn't on its product.")
+    expect(row(planOf(8, 5), 'data').check).toBeUndefined()
+  })
+  it('takes the longest there are enough of, the one used last time, or the one picked', () => {
+    // Three reels free and none of the 50 metre cables: four lines go to the 30 metre ones, two lines stay on the reel.
+    const free = (m: string) => ({ [reel.id]: 3, [cat6.id]: 0 })[m]
+    expect(items(planOf(16, 7, { look: { free } }), 'data')).toEqual([[cat30.id, 4]])
+    expect(row(planOf(16, 7, { look: { free } }), 'data').choices.map((c) => c.id)).toEqual([cat30.id, cat20.id, reel.id, cat6.id])
+    expect(items(planOf(8, 5, { look: { free } }), 'data')).toEqual([[reel.id, 2]])
+    expect(items(planOf(16, 7, { look: { usual: { data: cat20.id } } }), 'data')).toEqual([[cat20.id, 4]])
+    expect(items(planOf(16, 7, { look: { usual: { data: cat20.id } }, picks: { data: cat6.id } }), 'data')).toEqual([[cat6.id, 4]])
+    // A cable is picked for how far it goes: a price only parts two of one length.
+    expect(items(planOf(16, 7, { look: { price: (m) => (m === cat20.id ? 500 : 0) } }), 'data')).toEqual([[reel.id, 4]])
+    const twin = product('Cat5e drum', { ...cables, lengthM: 100 })
+    expect(items(planOf(16, 7, { list: [...held, twin], look: { price: (m) => (m === twin.id ? 500 : 0) } }), 'data')).toEqual([[twin.id, 4]])
+  })
+  it('counts the lines of every screen, and one a screen where the pixels are not given', () => {
+    // Three 4 by 2.5 metre screens are a line each from an MX30, whose line carries 659,722 pixels.
+    const three = planOf(8, 5, { count: 3 })
+    expect(items(three, 'processor')).toEqual([[mx30.id, 1]])
+    expect(data(three)).toEqual([1, [[reel.id, 3]], 'One for each of the 3 data lines, from the processor to the screen, for 3 screens. Each takes a whole screen.'])
+    const blank = screenPlan({ ...ask(8, 5, 'hung', 2), facts: { ...HALF, pixelsW: null, pixelsH: null } }, wired)
+    expect(data(blank)).toEqual([null, [[reel.id, 2]], 'One for each screen, from the processor.'])
+    expect(row(blank, 'data').check).toBe("The panel's pixels aren't given, so its data lines aren't counted: check how many it takes.")
+    expect(items(blank, 'fibre')).toEqual([[cvt.id, 2], [fibre.id, 1]])
+    expect(blank.working.join(' ')).not.toMatch(/A data line is counted/)
+    // With no processor in the stock list the lines are counted by the planning figure.
+    expect(data(planOf(16, 7, { list: held.filter((m) => m.category !== 'LED Processor') }))).toEqual([4, [[reel.id, 4]], 'One for each of the 4 data lines, from the processor to the screen. A line takes 4 columns of panels.'])
+  })
+  it('offers fibre to the screen only where the stock list holds a converter, as a part that says what it would add', () => {
+    // No converter: no such part, and asking for it changes nothing.
+    expect(planOf(16, 7, { fibre: true }).rows.map((r) => r.part)).toEqual(['panels', 'bars', 'truss', 'motors', 'control', 'processor', 'data', 'distro'])
+    expect(data(planOf(16, 7, { fibre: true }))).toEqual(data(planOf(16, 7)))
+    const plain = planOf(16, 7, { list: wired })
+    expect(plain.rows.map((r) => r.part)).toEqual(['panels', 'bars', 'truss', 'motors', 'control', 'processor', 'data', 'fibre', 'distro'])
+    // Not asked for, it carries what it would add, and the cables are still the long ones.
+    expect(items(plain, 'fibre')).toEqual([[cvt.id, 2], [fibre.id, 1]])
+    expect(row(plain, 'fibre').why).toBe('In place of a long data cable for every line: a converter at each end for every 10 data lines, and a fibre between each pair.')
+    expect(row(plain, 'fibre').choices.map((c) => c.name)).toEqual(['Novastar CVT Pro'])
+    expect(data(plain)).toEqual(data(planOf(16, 7)))
+    expect(plain.working.join(' ')).not.toMatch(/converter/)
+  })
+  it('by fibre takes a converter at each end from a processor with no fibre output, and two short cables a line', () => {
+    const by = planOf(16, 7, { list: wired, fibre: true })
+    expect(items(by, 'processor')).toEqual([[vx4s.id, 1]])
+    // An 8 by 3.5 metre screen: the shortest cable that goes 11.5 metres.
+    expect(data(by)).toEqual([4, [[cat20.id, 8]], 'Two for each of the 4 data lines: from the processor to its converter, and from the converter at the screen to the first panel. A line takes 4 columns of panels.'])
+    expect(items(by, 'fibre')).toEqual([[cvt.id, 2], [fibre.id, 1]])
+    expect(by.working).toContain("A fibre converter is taken to carry 10 data lines, as NovaStar's CVT10 Pro does. The converters and the fibre between them have to be of one kind: single-mode with single-mode.")
+    expect(by.working).toContain('The data cable offered is the shortest that reaches the far corner of the screen from a converter at one end: 11.5 m or more.')
+    // The long cable used last time isn't taken for the short run; one picked is.
+    expect(items(planOf(16, 7, { list: wired, fibre: true, look: { usual: { data: reel.id } } }), 'data')).toEqual([[cat20.id, 8]])
+    expect(items(planOf(16, 7, { list: wired, fibre: true, picks: { data: cat6.id } }), 'data')).toEqual([[cat6.id, 8]])
+    // A processor we don't know is taken the same way, its lines by the planning figure.
+    const other = product('Linsn TS802 sending box', video)
+    const unknown = planOf(16, 7, { list: [...wired.filter((m) => m.category !== 'LED Processor'), other], fibre: true })
+    expect([items(unknown, 'data'), items(unknown, 'fibre')]).toEqual([[[cat20.id, 8]], [[cvt.id, 2], [fibre.id, 1]]])
+  })
+  it('by fibre takes one converter at the screen for each fibre a bigger processor sends', () => {
+    // An MX30 sends its ten lines down one fibre. A line carries ten columns four tall: 32 are four lines, shared out as eight each.
+    const one = planOf(32, 4, { list: wired, fibre: true })
+    expect(items(one, 'processor')).toEqual([[mx30.id, 1]])
+    expect(data(one)).toEqual([4, [[cat20.id, 4]], 'One for each of the 4 data lines, from the converter at the screen to its first panel. A line takes 8 columns of panels.'])
+    expect(items(one, 'fibre')).toEqual([[cvt.id, 1], [fibre.id, 1]])
+    expect(row(one, 'fibre').why).toBe('In place of a long data cable for every line: a converter at the screen for every 10 data lines, each on a fibre from the processor.')
+    // An MX40's 11 lines go down two. The screen is 16 by 6 metres: the 30 metre cable is the shortest that crosses it.
+    const two = planOf(32, 12, { list: wired, fibre: true })
+    expect(items(two, 'processor')).toEqual([[mx40.id, 1]])
+    expect(row(two, 'processor').why).toBe('Drives 9 million pixels from 20 ports; this screen has 6,291,456 in 11 data lines')
+    expect(data(two)).toEqual([11, [[cat30.id, 11]], 'One for each of the 11 data lines, from the converter at the screen to its first panel. A line takes up to 3 columns of panels.'])
+    expect(items(two, 'fibre')).toEqual([[cvt.id, 2], [fibre.id, 2]])
+    // A UHD Jr sends eight down each of its fibres: 15 lines are two.
+    const jr = planOf(25, 21, { list: wired, fibre: true, picks: { processor: uhd.id } })
+    expect(items(jr, 'fibre')).toEqual([[cvt.id, 2], [fibre.id, 2]])
+    expect(row(jr, 'fibre').why).toBe('In place of a long data cable for every line: a converter at the screen for every 8 data lines, each on a fibre from the processor.')
+    // No cable long enough to cross the screen: the longest, to be checked.
+    const short = planOf(60, 20, { list: wired.filter((m) => ![reel.id, cat6.id, cat30.id].includes(m.id)), fibre: true })
+    expect(row(short, 'data').chosen).toBe(cat20.id)
+    expect(row(short, 'data').check).toBe('Check it reaches every line from the converter: the screen is 30 m wide and 10 m tall.')
+  })
+  it("counts an MX40's other 20 ports where the lines go by fibre, and says so where they would help", () => {
+    // 25 lines in whole columns: past its 20 ports by data cable, within its 40 by fibre, three fibres of ten.
+    const off = planOf(25, 21, { list: wired })
+    expect(row(off, 'processor').check).toBe('It has 20 more ports that only leave by fibre: with Fibre to the screen ticked, every line keeps to whole columns.')
+    expect(items(off, 'fibre')).toEqual([[cvt.id, 3], [fibre.id, 3]])
+    const by = planOf(25, 21, { list: wired, fibre: true })
+    expect(items(by, 'processor')).toEqual([[mx40.id, 1]])
+    expect(row(by, 'processor').why).toBe('Drives 9 million pixels from 40 ports by fibre; this screen has 8,601,600 in 25 data lines')
+    expect(row(by, 'processor').check).toBe('More than 20 lines takes its 40-port mode, which wants VMP and its firmware at 1.4.0 or later.')
+    expect(data(by)).toEqual([25, [[cat30.id, 25]], 'One for each of the 25 data lines, from the converter at the screen to its first panel. A line takes one column of panels.'])
+    expect(items(by, 'fibre')).toEqual([[cvt.id, 3], [fibre.id, 3]])
+    // 21 small screens are a line each: two MX40s by data cable, one by fibre.
+    const many = planOf(2, 2, { count: 21, list: wired, picks: { processor: mx40.id } })
+    expect([row(many, 'processor').items[0]!.qty, row(many, 'processor').why]).toEqual([2, 'One has 20 ports, which is 20 of these screens at 1 data line each'])
+    expect(row(many, 'processor').check).toBe('It has 20 more ports that only leave by fibre: with Fibre to the screen ticked, one drives these screens.')
+    const manyBy = planOf(2, 2, { count: 21, list: wired, picks: { processor: mx40.id }, fibre: true })
+    expect([row(manyBy, 'processor').items[0]!.qty, row(manyBy, 'processor').why]).toEqual([1, 'Drives 9 million pixels from 40 ports by fibre; these screens have 1,376,256 in 21 data lines'])
+    // Within its 20 ports nothing is said of the mode.
+    expect(row(planOf(32, 12, { list: wired, fibre: true }), 'processor').check).toBeUndefined()
+  })
+  it('counts the converters by what each processor carries, and says several screens may share one', () => {
+    // Six 8 by 3.5 metre screens are four lines each: four screens on one MX40 and two on the other, 16 lines and 8.
+    const six = planOf(16, 7, { count: 6, list: wired, fibre: true })
+    expect([items(six, 'processor'), row(six, 'processor').why]).toEqual([[[mx40.id, 2]], 'One drives 9 million pixels, which is 4 of these screens at 1,835,008 each'])
+    expect(data(six)).toEqual([4, [[cat20.id, 24]], 'One for each of the 24 data lines, from the converter at the screens to its first panel, for 6 screens. A line takes 4 columns of panels.'])
+    expect(items(six, 'fibre')).toEqual([[cvt.id, 3], [fibre.id, 3]])
+    expect(row(six, 'fibre').why).toBe('In place of a long data cable for every line: a converter at the screens for every 10 data lines, each on a fibre from the processor, for 6 screens.')
+    expect(row(six, 'fibre').check).toBe('One converter may feed more than one screen: where they stand apart, check its data cables reach each, or add a converter.')
+    expect(row(planOf(16, 7, { list: wired, fibre: true }), 'fibre').check).toBeUndefined()
+  })
+  it('runs the converters on the longest fibre in the stock list, and says so where there is none', () => {
+    // A patch lead, a panel socket and the converter itself are not the run. A drum is, by fibre's name or its connector's.
+    const drum = product('Opticalcon Duo drum 150m', video)
+    expect(items(planOf(16, 7, { list: [...wired, drum] }), 'fibre')).toEqual([[cvt.id, 2], [drum.id, 1]])
+    const none = planOf(16, 7, { list: [...held, cvt], fibre: true })
+    expect(items(none, 'fibre')).toEqual([[cvt.id, 2]])
+    expect(row(none, 'fibre').check).toBe('No fibre found in the stock list to run between them: add what carries it.')
+    // The converter is known by its number as well: one called a CVT10 Pro, or a fibre converter.
+    for (const name of ['Novastar CVT10 Pro', 'NovaStar CVT10 Pro-S', 'Fibre converter 10 port']) expect(row(planOf(16, 7, { list: [...held, product(name, video), fibre] }), 'fibre').choices.map((c) => c.name)).toEqual([name])
   })
 })
 

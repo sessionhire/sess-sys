@@ -3,6 +3,64 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 28 November 2026: a screen's data lines, and what takes them to it
+
+**Done (1.246.0, #473, [ADR 0208](adr/0208-a-screens-data-lines-and-what-takes-them-to-it.md))**
+
+- The second of the steps Colly chose for the LED screen builder ("All of it,
+  hired kit included"): the data lines counted as a screen is cabled, and the
+  cables or the fibre that take them to it.
+- A line is a tidy block of whole panels: whole columns, as many to a line
+  as it carries, shared out evenly; the columns cut shorter only where one is
+  more than a line carries, or where that saves a processor. An 8 by 3.5
+  metre screen of the 3.9 mm panel is four lines, where the builder said
+  three. The count is with the screen's size ("4 data lines"), and how the
+  lines lie is beside the cables ("A line takes 4 columns of panels").
+- Two new parts of a screen's kit. **Data cables**: one for every line, found
+  by name, none longer than 100 metres, the longest there are enough of.
+  **Fibre to the screen**: one tick, off to begin with and kept as it was
+  left, which swaps the long cables for the CVT Pros, a fibre to each and a
+  short cable for every line. An MX30, an MX40 or a UHD Jnr takes a converter
+  at the screen only, since each sends its lines down its own fibre; a VX4S
+  or a NovaPro HD takes one at each end.
+- With the tick on, an MX40 is counted with all 40 of its ports, and its line
+  says what the 40-port mode wants (VMP and firmware 1.4.0 or later). With
+  it off, its line says when the other 20 would help.
+- On the MX range a line may carry on from one column into part of the next,
+  but only where that is what fits, and the processor's line says so. So a
+  16 by 6 metre screen, 11 lines in whole columns, goes on an MX40 before an
+  MX30 with its ten ports.
+- On the MX range a panel narrower than 128 pixels is counted as 128 wide,
+  each on its own: the 4.8 mm panel is 24 to a line. NovaStar's rule doesn't
+  say whether two narrow columns side by side count as one area, and this is
+  the reading that never asks for fewer lines than a screen needs.
+- The research has the SQ200 answer too (Colly asked how many 10G to 1G
+  boxes it takes for the hired V4ST screen: three XD boxes behind one QD-S,
+  six with loops or at 60 Hz in 10-bit).
+
+**Checked**
+
+- 53 tests of the sums, 13 of them new, with the processors, cables,
+  converter and fibre named as the stock list names them, and the things
+  that only have "data" or "fibre" in their names (a multicore, the panel
+  links, a node, a rack, a patch lead, a socket) left out.
+- Five browser tests, one new: the fibre tick at a desk, the kit it puts on
+  the quote, the screen opened again from its line, what unticking it lists,
+  and the next screen starting by fibre. The sheet was looked at on a desk
+  and at 390 px, with fibre off and on.
+
+**Waiting on Colly**
+
+- Which receiving card is in each panel (an MX drives only NovaStar's A
+  series): if either has another, step 3 is built next, ahead of the backup
+  lines.
+- Counts for the MX30s, MX40s, UHD Jnrs and CVT Pros: each shows as none
+  free until it has one.
+- Whether the MX40s are on VMP and firmware 1.4.0 or later.
+- With the 4.8 mm panel on an MX: whether VMP counts two of its columns side
+  by side on one line as one area (30 a line) or two (24).
+- The list of what is hired in, from whom and at what price, for step 5.
+
 ## 28 November 2026: the MX30 and MX40 held to NovaStar's current figures
 
 **Done (1.245.5, #472, ADR 0207 amended again)**

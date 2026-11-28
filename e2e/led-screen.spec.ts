@@ -5,7 +5,8 @@ import { expect, test, type APIRequestContext, type Locator, type Page } from '@
  * whether it's hung or ground stacked; a panel's size is asked the first time it's used and kept on its product; the kit that
  * makes the screen is listed with the reason for each count and what it comes to; and one press puts the screen on the quote
  * with that kit under it, in an LED screen group. Its line opens the builder again to change it, which says what the change
- * does before it's made.
+ * does before it's made. Its data lines are counted as it's cabled, with a data cable for each or, by one tick, fibre and
+ * its converters (ADR 0208).
  *
  * The stock is made once for both tests, named as a hire company's really is. The tests run in order: the first gives the
  * panel its size, and the second finds it kept.
@@ -47,6 +48,12 @@ const PRODUCTS: [key: string, name: string, more: Record<string, unknown>, dayCe
   ['truss3', '3M H30V truss', { department: 'rigging', category: 'Rigging' }, 1_500, 20],
   ['plate', 'H30V 1m base plate', { department: 'rigging', category: 'Rigging', weightKg: 40 }, 1_000, 2],
   ['processor', 'Novastar vx4s Processor', { department: 'video', category: 'Video equipment' }, 10_000, 3],
+  // What takes the data lines to the screen, named and filed as a stock list has them: two lengths of data cable, a fibre converter
+  // and the fibre it runs on.
+  ['reel', 'Cat 5 reel', { department: 'other', category: 'Cables', lengthM: 100 }, 1_500, 12],
+  ['cat', 'cat5 cable', { department: 'other', category: 'Cables', lengthM: 20 }, 300, 40],
+  ['cvt', 'Novastar CVT Pro', { department: 'video', category: 'Video equipment' }, 6_000, 4],
+  ['fibre', 'Single Mode Fibre', { department: 'video', category: 'Cables', lengthM: 100 }, 2_500, 4],
   ['distro', 'SES 18 way video distro', { department: 'power', category: 'Power' }, null, 2],
 ]
 
@@ -143,20 +150,29 @@ test('at a desk, an LED screen is built in a sheet, lands on the quote with its 
   const takes = form.getByRole('region', { name: 'What it takes' })
   const figures = takes.getByRole('term')
   await expect(figures).toHaveText(['Panels', 'Size', 'Pixels', 'Weight', 'Power'])
-  await expect(takes.getByRole('definition')).toHaveText(['6010 × 6', '5 × 3 m5:3', '1,280 × 768', '450 kgpanels only', '9.6 kW4 circuits of 16 A'])
+  // The data lines are counted beside the pixels they carry.
+  await expect(takes.getByRole('definition')).toHaveText(['6010 × 6', '5 × 3 m5:3', '1,280 × 7682 data lines', '450 kgpanels only', '9.6 kW4 circuits of 16 A'])
   // What hangs is said, and with it, ahead of the kit, that these are a first pass: read where the weights are, not after the list.
   const how = takes.locator('.screen-how')
   await expect(how).toContainText("Hangs from 3 points: about 583 kg in all, 194 kg a point if it's shared evenly.")
   await expect(how).toContainText('A first pass to quote from, not a structural check')
   expect(await how.evaluate((el) => !!(el.compareDocumentPosition(el.closest('section')!.querySelector('.screen-parts')!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true)
   const parts = takes.getByRole('list', { name: 'Kit to add to the quote' }).getByRole('listitem')
-  await expect(parts.locator('.screen-part-name')).toHaveText(['Panels', 'Fly bars', 'Truss', 'Motors', 'Motor control', 'Processor', 'Power distro'])
+  await expect(parts.locator('.screen-part-name')).toHaveText(['Panels', 'Fly bars', 'Truss', 'Motors', 'Motor control', 'Processor', 'Data cables', 'Fibre to the screen', 'Power distro'])
   await expect(parts.nth(0)).toContainText(`60 × ${named('Absen NT 3.9')}`)
   await expect(parts.nth(0)).toContainText('€2,400.00')
   await expect(parts.nth(0).getByRole('checkbox')).toBeDisabled()
   await expect(parts.nth(1)).toContainText(`10 × ${named('Absen fly bar')}`)
+  // A data cable for each line, the longest we hold; fibre is the one part that starts unticked, and says what it would add.
+  await expect(parts.nth(5)).toContainText('Drives 2.3 million pixels from 4 ports; this screen has 983,040 in 2 data lines')
+  await expect(parts.nth(6)).toContainText('2 ×')
+  await expect(parts.nth(6).getByRole('combobox', { name: 'Data cables: which' })).toHaveValue(`reel-${run}`)
+  await expect(parts.nth(6)).toContainText('One for each of the 2 data lines, from the processor to the screen. A line takes 5 columns of panels.')
+  await expect(parts.nth(7).getByRole('checkbox')).not.toBeChecked()
+  await expect(parts.nth(7)).toContainText('Left off')
+  await expect(parts.nth(7)).toContainText(`2 × ${named('Novastar CVT Pro')}, 1 × ${named('Single Mode Fibre')} 100 m`)
   // No price on the price list is said, not shown as nothing.
-  await expect(parts.nth(6)).toContainText('No price yet')
+  await expect(parts.nth(8)).toContainText('No price yet')
   await expect(form.locator('.screen-comes-to')).toContainText('for 2 days, before VAT · 1 line with no price yet')
   if (shots) {
     await sheet.evaluate((d) => d.scrollTo(0, 0))
@@ -165,8 +181,8 @@ test('at a desk, an LED screen is built in a sheet, lands on the quote with its 
 
   // Taking a part off is one tick, and what it comes to follows.
   const before = await form.locator('.screen-comes-to b').textContent()
-  await parts.nth(6).getByRole('checkbox').uncheck()
-  await expect(parts.nth(6)).toContainText('Left off')
+  await parts.nth(8).getByRole('checkbox').uncheck()
+  await expect(parts.nth(8)).toContainText('Left off')
   await expect(form.locator('.screen-comes-to')).not.toContainText('no price yet')
   expect(await form.locator('.screen-comes-to b').textContent()).toBe(before)
 
@@ -186,7 +202,9 @@ test('at a desk, an LED screen is built in a sheet, lands on the quote with its 
   await expect(group.getByLabel('Line 2: how many')).toHaveValue('60')
   await expect(group.getByLabel('Line 2: price, a day')).toHaveValue('20')
   await expect(group.getByText(named('Absen fly bar'))).toBeVisible()
+  await expect(group.getByText(named('Cat 5 reel'))).toBeVisible()
   await expect(group.getByText(named('SES 18 way video distro'))).toHaveCount(0)
+  await expect(group.getByText(named('Novastar CVT Pro'))).toHaveCount(0)
   // The draft saves itself, the screen with it.
   await expect(draft.locator('.save-state')).toHaveText('Saved')
   await expect(page.locator('.conn')).toHaveText('Up to date')
@@ -205,8 +223,9 @@ test('at a desk, an LED screen is built in a sheet, lands on the quote with its 
   await expect(again.getByLabel('Height, m', { exact: true })).toHaveValue('3')
   await expect(again.getByRole('radio', { name: named('Absen NT 3.9') })).toBeChecked()
   await expect(again.getByRole('radio', { name: 'Hung' })).toBeChecked()
-  // The part left off is still off, and nothing is asked of the panel now.
-  await expect(again.getByRole('list', { name: 'Kit to add to the quote' }).getByRole('listitem').nth(6).getByRole('checkbox')).not.toBeChecked()
+  // The part left off is still off, fibre with it, and nothing is asked of the panel now.
+  await expect(again.getByRole('list', { name: 'Kit to add to the quote' }).getByRole('listitem').nth(8).getByRole('checkbox')).not.toBeChecked()
+  await expect(again.getByRole('list', { name: 'Kit to add to the quote' }).getByRole('listitem').nth(7).getByRole('checkbox')).not.toBeChecked()
   await expect(again.getByLabel('Panel width, mm')).toHaveCount(0)
   const does = again.getByRole('group', { name: 'What this changes on the quote' })
   await expect(does).toContainText('Nothing: the screen is as the quote has it.')
@@ -296,7 +315,10 @@ test('on a phone the builder is the whole screen, keeps what was typed when shut
   // The wind it holds to is a first pass, and says so in the same breath.
   await expect(takes.locator('.screen-how')).toContainText('A first pass to quote from, not a structural check')
   const parts = takes.getByRole('list', { name: 'Kit to add to the quote' }).getByRole('listitem')
-  await expect(parts.locator('.screen-part-name')).toHaveText(['Panels', 'Fly bars', 'Truss uprights', 'Base plates', 'Processor', 'Power distro'])
+  await expect(parts.locator('.screen-part-name')).toHaveText(['Panels', 'Fly bars', 'Truss uprights', 'Base plates', 'Processor', 'Data cables', 'Fibre to the screen', 'Power distro'])
+  // Two screens of two lines each: a cable for every line of both.
+  await expect(parts.nth(5)).toContainText('4 ×')
+  await expect(parts.nth(5)).toContainText('One for each of the 4 data lines, from the processor to the screen, for 2 screens. A line takes 4 columns of panels.')
   await expect(parts.nth(0)).toContainText(`80 × ${named('Absen NT 3.9')}`)
   // More base plates than are free on the job's days is said on its part.
   await expect(parts.nth(3)).toContainText('free on the job’s days')
@@ -311,6 +333,10 @@ test('on a phone the builder is the whole screen, keeps what was typed when shut
   await parts.nth(3).scrollIntoViewIfNeeded()
   await expect(form.getByRole('button', { name: 'Add to quote' })).toBeInViewport()
   if (shots) await shot(page, 'builder-phone-kit')
+  if (shots) {
+    await parts.nth(7).scrollIntoViewIfNeeded()
+    await shot(page, 'builder-phone-data-lines')
+  }
 
   // On the narrowest phone nothing runs off the side: the sheet doesn't scroll sideways, no part of it is wider than the screen,
   // and Add to quote is still in reach.
@@ -348,6 +374,100 @@ test('on a phone the builder is the whole screen, keeps what was typed when shut
   await expect(form.getByText('Opened as you left it.')).toHaveCount(0)
   // The panel used last is already chosen.
   await expect(panel).toBeChecked()
+})
+
+test('the data lines go to the screen by cable or, by one tick, by fibre, and the quote and the next screen keep which', async ({ browser, request }) => {
+  const page = await (await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: shots ? 2 : 1 })).newPage()
+  const draft = await quoteFor(request, page, 'fibre')
+  await draft.getByRole('button', { name: 'Add LED screen' }).click()
+  const sheet = page.getByRole('dialog', { name: 'Add an LED screen' })
+  const form = sheet.getByRole('form', { name: 'Add an LED screen' })
+  await form.getByLabel('Width, m', { exact: true }).fill('8')
+  await form.getByLabel('Height, m', { exact: true }).fill('3.5')
+  await form.getByRole('radio', { name: named('Absen NT 3.9') }).check()
+  await form.getByRole('radio', { name: 'Hung' }).check()
+  const takes = form.getByRole('region', { name: 'What it takes' })
+  await expect(takes.getByRole('definition').nth(2)).toHaveText('2,048 × 8964 data lines')
+  const parts = takes.getByRole('list', { name: 'Kit to add to the quote' }).getByRole('listitem')
+  const [processor, cables, fibre] = [parts.nth(5), parts.nth(6), parts.nth(7)]
+  await expect(processor).toContainText('Drives 2.3 million pixels from 4 ports; this screen has 1,835,008 in 4 data lines')
+
+  // A long data cable for every line: the longest we hold is offered, with the shorter one to choose.
+  const which = cables.getByRole('combobox', { name: 'Data cables: which' })
+  await expect(cables).toContainText('4 ×')
+  await expect(which.getByRole('option')).toHaveText([`${named('Cat 5 reel')} 100 m`, `${named('cat5 cable')} 20 m`])
+  await expect(which).toHaveValue(`reel-${run}`)
+  await expect(cables).toContainText('One for each of the 4 data lines, from the processor to the screen. A line takes 4 columns of panels.')
+  // Fibre is the one part that isn't ticked to begin with: it says what ticking it would add.
+  const byFibre = fibre.getByRole('checkbox')
+  await expect(byFibre).not.toBeChecked()
+  await expect(fibre).toContainText('Left off')
+  await expect(fibre).toContainText(`2 × ${named('Novastar CVT Pro')}, 1 × ${named('Single Mode Fibre')} 100 m`)
+  await expect(fibre).toContainText('In place of a long data cable for every line: a converter at each end for every 10 data lines, and a fibre between each pair.')
+  if (shots) {
+    await parts.nth(8).scrollIntoViewIfNeeded()
+    await shot(page, 'data-lines-desk')
+  }
+
+  // One tick: the converters and the fibre come on, and the cables are two short ones a line.
+  const before = await form.locator('.screen-comes-to b').textContent()
+  await byFibre.check()
+  await expect(cables).toContainText('8 ×')
+  await expect(which).toHaveValue(`cat-${run}`)
+  await expect(cables).toContainText('Two for each of the 4 data lines: from the processor to its converter, and from the converter at the screen to the first panel.')
+  await expect(fibre).not.toContainText('Left off')
+  expect(await form.locator('.screen-comes-to b').textContent()).not.toBe(before)
+  // How it was worked out says what a converter is taken to carry, and which cable was offered.
+  await takes.getByText('How it was worked out').click()
+  await expect(takes.locator('.screen-working')).toContainText('A fibre converter is taken to carry 10 data lines')
+  await expect(takes.locator('.screen-working')).toContainText('The data cable offered is the shortest that reaches the far corner of the screen from a converter at one end: 11.5 m or more.')
+  if (shots) {
+    await fibre.scrollIntoViewIfNeeded()
+    await shot(page, 'fibre-desk')
+  }
+
+  // On the quote the screen has its converters, its fibre and the short cables under it, and no reel.
+  await form.getByRole('button', { name: 'Add to quote' }).click()
+  await expect(sheet).toHaveCount(0)
+  const group = draft.getByRole('group', { name: 'LED screen', exact: true })
+  const howMany = (name: string) => group.getByText(named(name)).first().locator('xpath=ancestor::*[.//input[contains(@aria-label, ": how many")]][1]').getByLabel(/: how many$/)
+  await expect(howMany('Novastar CVT Pro')).toHaveValue('2')
+  await expect(howMany('Single Mode Fibre')).toHaveValue('1')
+  await expect(howMany('cat5 cable')).toHaveValue('8')
+  await expect(group.getByText(named('Cat 5 reel'))).toHaveCount(0)
+  await expect(draft.locator('.save-state')).toHaveText('Saved')
+  await expect(page.locator('.conn')).toHaveText('Up to date')
+
+  // Opened again from its line, it is as the quote has it: by fibre, with the short cable.
+  await page.reload()
+  await expect(page.locator('.conn')).toHaveText('Up to date')
+  await group.getByRole('button', { name: 'Line 1: LED screen 8 × 3.5 m, hung, change the screen' }).click()
+  const again = page.getByRole('dialog', { name: 'Change the LED screen' }).getByRole('form', { name: 'Change the LED screen' })
+  const rows = again.getByRole('list', { name: 'Kit to add to the quote' }).getByRole('listitem')
+  await expect(rows.nth(7).getByRole('checkbox')).toBeChecked()
+  await expect(rows.nth(6).getByRole('combobox', { name: 'Data cables: which' })).toHaveValue(`cat-${run}`)
+  const does = again.getByRole('group', { name: 'What this changes on the quote' })
+  await expect(does).toContainText('Nothing: the screen is as the quote has it.')
+  // Unticked, the long cables come back, and what that does to the quote is said first.
+  await rows.nth(7).getByRole('checkbox').uncheck()
+  await expect(rows.nth(6).getByRole('combobox', { name: 'Data cables: which' })).toHaveValue(`reel-${run}`)
+  await expect(does.getByRole('listitem')).toHaveText([
+    `Added: 4 × ${named('Cat 5 reel')} 100 m.`,
+    `Taken off: 8 × ${named('cat5 cable')} 20 m.`,
+    `Taken off: 2 × ${named('Novastar CVT Pro')}.`,
+    `Taken off: 1 × ${named('Single Mode Fibre')} 100 m.`,
+  ])
+  await again.getByRole('button', { name: 'Cancel' }).click()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+
+  // The next screen starts by fibre, since the last one went that way.
+  await draft.getByRole('button', { name: 'More to add…' }).click()
+  await draft.getByRole('button', { name: 'Add LED screen' }).click()
+  await form.getByLabel('Width, m', { exact: true }).fill('4')
+  await form.getByLabel('Height, m', { exact: true }).fill('2.5')
+  await form.getByRole('radio', { name: 'Hung' }).check()
+  await expect(byFibre).toBeChecked()
+  await expect(which).toHaveValue(`cat-${run}`)
 })
 
 test('a panel’s size is on its product page, where it can be put right', async ({ page }) => {
@@ -404,9 +524,9 @@ test('a part with long-named products to choose from never makes the sheet scrol
   await form.getByLabel('Height, m', { exact: true }).fill('3')
   await form.getByRole('radio', { name: named('Absen NT 3.9') }).check()
   await form.getByRole('radio', { name: 'Hung' }).check()
-  // Three parts have a choice to make, each in a drop-down that holds a long name.
+  // Four parts have a choice to make, each in a drop-down, three of them holding a long name.
   const takes = form.getByRole('region', { name: 'What it takes' })
-  const picks = [takes.getByRole('combobox', { name: 'Motors: which' }), takes.getByRole('combobox', { name: 'Processor: which' }), takes.getByRole('combobox', { name: 'Power distro: which' })]
+  const picks = [takes.getByRole('combobox', { name: 'Motors: which' }), takes.getByRole('combobox', { name: 'Processor: which' }), takes.getByRole('combobox', { name: 'Power distro: which' }), takes.getByRole('combobox', { name: 'Data cables: which' })]
   for (const pick of picks) await expect(pick).toBeVisible()
   await expect(picks[2]!.getByRole('option', { name: named('Santasom 18way socapex video distro') })).toHaveCount(1)
   await expect(picks[1]!.getByRole('option', { name: named('Nova star pro HD video processor') })).toHaveCount(1)

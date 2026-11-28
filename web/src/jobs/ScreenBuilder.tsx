@@ -17,10 +17,12 @@ import { lineStands, screenChanges, screenComesTo, screenLines, type ScreenSet }
  *
  * It asks the least it can. The panels we hold are offered first and the one used last time is already chosen; a
  * panel's size is asked the first time it's used and kept on its product; nothing else has to be typed. Every part is
- * ticked to begin with, since kit left off a quote is the mistake that costs, and taking a part off is one tick.
+ * ticked to begin with, since kit left off a quote is the mistake that costs, and taking a part off is one tick. The one
+ * part that starts unticked is fibre to the screen (ADR 0208): it isn't kit a screen is short without but another way to
+ * carry its data lines, so it's on when it was used last time, and one tick swaps the long data cables for it.
  *
  * The sums are in the shared code (`@sh/shared/led-screen`), which only this file reads. It comes with the rest of the
- * app, not as a file fetched when first shown (lazyPart.tsx): it's small (about 19 KB as it travels), and so the sheet
+ * app, not as a file fetched when first shown (lazyPart.tsx): it's small (about 22 KB as it travels), and so the sheet
  * opens at once, with no signal too. The lines it makes are worked out by screenLines.ts as they're shown, so what the
  * foot says the screen comes to is what the quote says once it's there.
  */
@@ -61,12 +63,13 @@ export interface ScreenBuilderProps {
   onClose: () => void
 }
 
-/** What this device remembers of the last screen built: the panel, and the products picked for each part, offered again where they do the job. */
+/** What this device remembers of the last screen built: the panel, the products picked for each part, offered again where they do the job, and whether its data lines went by fibre. */
 const USUAL_KEY = 'sh.screen.usual'
 interface Usual {
   panel?: string
   hung?: ScreenPicks
   ground?: ScreenPicks
+  fibre?: boolean
 }
 function readUsual(): Usual {
   try {
@@ -122,7 +125,8 @@ function startOf(models: readonly ModelView[], was: ScreenSet | undefined, usual
     const ours = choices.filter((c) => c.ours)
     const last = usual.panel ? models.find((m) => m.id === usual.panel && !m.mistake) : undefined
     const panelId = last?.id ?? (ours.length === 1 ? ours[0]!.model.id : choices.length === 1 ? choices[0]!.model.id : '')
-    return { panelId, width: '', height: '', stands: '', count: String(count ?? 1), typed: {}, picks: {}, off: [] }
+    // Fibre to the screen is the one part that starts unticked, unless the last screen used it.
+    return { panelId, width: '', height: '', stands: '', count: String(count ?? 1), typed: {}, picks: {}, off: usual.fibre ? [] : ['fibre'] }
   }
   const panel = models.find((m) => m.id === screen.panel)
   const made = Number(was.head.qty) || 1
@@ -200,12 +204,14 @@ export function ScreenBuilder({ view, days, free, room, was, count: asked, kept,
   const grid = read?.facts && wide !== undefined && high !== undefined ? gridFor(read.facts, wide, high) : undefined
   const screens = wholeIn(count, 1, MOST_SCREENS)
   const usualPicks = stands ? usual[stands] : undefined
+  // Ticked, the data lines go by fibre: the plan counts the processor's ports and the cables by it.
+  const fibre = !off.includes('fibre')
   const plan = useMemo(() => {
     if (!panel || !read?.facts || !grid || !stands || screens === undefined) return undefined
     const as = { ...panel, panel: read.facts, weightKg: read.weightKg, powerW: read.powerW }
-    return screenPlan({ panel: as, facts: read.facts, cols: grid.cols, rows: grid.rows, count: screens, stands }, models, picks, { price: (x) => m.productPrice(x), free, ...(usualPicks ? { usual: usualPicks } : {}) })
+    return screenPlan({ panel: as, facts: read.facts, cols: grid.cols, rows: grid.rows, count: screens, stands, fibre }, models, picks, { price: (x) => m.productPrice(x), free, ...(usualPicks ? { usual: usualPicks } : {}) })
     // What's read of the panel is made afresh each draw: the plan turns on its numbers.
-  }, [models, panel, read?.facts?.widthMm, read?.facts?.heightMm, read?.facts?.pixelsW, read?.facts?.pixelsH, read?.weightKg, read?.powerW, grid?.cols, grid?.rows, stands, screens, picks, m, free, usualPicks])
+  }, [models, panel, read?.facts?.widthMm, read?.facts?.heightMm, read?.facts?.pixelsW, read?.facts?.pixelsH, read?.weightKg, read?.powerW, grid?.cols, grid?.rows, stands, screens, fibre, picks, m, free, usualPicks])
 
   // The kit the ticked parts come to, each product once, in the order it's listed.
   const built = useMemo(() => {
@@ -321,8 +327,12 @@ export function ScreenBuilder({ view, days, free, room, was, count: asked, kept,
       if ((panel.powerW || null) !== read.powerW) keep.powerW = read.powerW
     }
     const land = () => {
-      // The panel and each part's product are offered first next time, where they do the job.
-      keepUsual({ ...usual, panel: panel.id, [stands]: Object.fromEntries(plan.rows.flatMap((r) => (r.part !== 'panels' && r.chosen && !off.includes(r.part) ? [[r.part, r.chosen]] : []))) })
+      // The panel and each part's product are offered first next time, where they do the job, and fibre is ticked again where it
+      // was used. The data cable is remembered for the long run only: by fibre it's the short one at the screen.
+      const byFibre = fibre && plan.rows.some((r) => r.part === 'fibre')
+      const chosen = plan.rows.flatMap((r) => (r.part !== 'panels' && r.chosen && !off.includes(r.part) && !(r.part === 'data' && byFibre) ? [[r.part, r.chosen]] : []))
+      const longRun = byFibre && usual[stands]?.data ? [['data', usual[stands].data]] : []
+      keepUsual({ ...usual, panel: panel.id, ...(plan.rows.some((r) => r.part === 'fibre') ? { fibre } : {}), [stands]: Object.fromEntries([...longRun, ...chosen]) })
       onDone(screenLines(built, { ...prices, newId }, was))
     }
     if (!mayKeep || !Object.keys(keep).length) return land()
@@ -333,7 +343,12 @@ export function ScreenBuilder({ view, days, free, room, was, count: asked, kept,
     })
   }
 
-  const tick = (part: ScreenPart, on: boolean) => setOff((now) => (on ? now.filter((x) => x !== part) : [...now.filter((x) => x !== part), part]))
+  const tick = (part: ScreenPart, on: boolean) => {
+    setOff((now) => (on ? now.filter((x) => x !== part) : [...now.filter((x) => x !== part), part]))
+    // By fibre the data cable is the short one at the screen, and by cable the long one from the processor: one picked for
+    // either isn't carried over to the other.
+    if (part === 'fibre') setPicks((now) => (now.data ? Object.fromEntries(Object.entries(now).filter(([key]) => key !== 'data')) : now))
+  }
   const wantsPicker = finding || offered.length === 0
 
   return (
@@ -509,7 +524,7 @@ export function ScreenBuilder({ view, days, free, room, was, count: asked, kept,
           <p className="hint screen-waits">The kit that makes the screen is listed here as the questions are answered: its panels, what it hangs from or stands on, and what drives and powers it.</p>
         ) : (
           <>
-            <Facts facts={plan.facts} count={screens ?? 1} />
+            <Facts facts={plan.facts} lines={plan.lines} count={screens ?? 1} />
             <div className="screen-how">
               {plan.stands.map((words) => (
                 <p key={words}>{words}</p>
@@ -644,11 +659,11 @@ export function ScreenBuilder({ view, days, free, room, was, count: asked, kept,
 const kilowatts = (w: number) => (w >= 1000 ? `${(w / 1000).toLocaleString('en-IE', { maximumFractionDigits: 1 })} kW` : `${w.toLocaleString('en-IE')} W`)
 
 /** One screen at a glance. What isn't known of it is said as that, never as nothing. */
-function Facts({ facts: f, count }: { facts: ScreenFacts; count: number }) {
+function Facts({ facts: f, lines, count }: { facts: ScreenFacts; lines: number | null; count: number }) {
   const figures: [label: string, value: string, more?: string][] = [
     ['Panels', f.panels.toLocaleString('en-IE'), `${f.cols} × ${f.rows}`],
     ['Size', `${metresWords(f.widthM).replace(/ m$/, '')} × ${metresWords(f.heightM)}`, f.ratio],
-    ['Pixels', f.pixelsW && f.pixelsH ? `${f.pixelsW.toLocaleString('en-IE')} × ${f.pixelsH.toLocaleString('en-IE')}` : 'Not given'],
+    ['Pixels', f.pixelsW && f.pixelsH ? `${f.pixelsW.toLocaleString('en-IE')} × ${f.pixelsH.toLocaleString('en-IE')}` : 'Not given', lines === null ? undefined : plural(lines, 'data line')],
     ['Weight', f.weightKg === null ? 'Not given' : `${Math.round(f.weightKg).toLocaleString('en-IE')} kg`, f.weightKg === null ? undefined : 'panels only'],
     ['Power', f.powerW === null ? 'Not given' : kilowatts(f.powerW), f.circuits === null ? undefined : `${plural(f.circuits, 'circuit')} of 16 A`],
   ]
