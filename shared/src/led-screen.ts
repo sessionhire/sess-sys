@@ -40,8 +40,10 @@ export const USUAL_TRUSS_KG_PER_M = 6.5
 export const USUAL_PLATE_M = 0.6
 /** What a 16 A circuit is loaded to: four fifths of it, at 230 V. */
 export const CIRCUIT_W = 230 * 16 * 0.8
-/** What one Gigabit port carries at 60 Hz, 8 bit, in pixels: the planning figure processors are sized by. */
+/** What one Gigabit port carries at 60 Hz, 8 bit, in pixels: the planning figure NovaStar's older sheets size a processor by. */
 export const PORT_PIXELS = 650_000
+/** The same by the maker's own sum, which its COEX range (MX, KU) is held to: pixels × 24 bits × 60 Hz, under 95% of a gigabit. */
+export const COEX_PORT_PIXELS = 659_722
 /** The overturning safety factor a ground-stacked screen is held to. */
 export const SAFETY = 1.5
 
@@ -160,6 +162,8 @@ interface Drives {
   pixels: number
   /** Its Gigabit ports. */
   ports: number
+  /** The pixels one of those ports carries, where its maker gives another figure than `PORT_PIXELS`. */
+  line?: number
   /** The widest and tallest picture it sends, in pixels. Left out where its sheet doesn't say, and then not checked. */
   widest?: number
   tallest?: number
@@ -179,10 +183,13 @@ const PROCESSORS: readonly ({ is: RegExp } & Drives)[] = [
   { is: /\bvx ?16s/i, pixels: 10_400_000, ports: 16, widest: 16_384, tallest: 8_192 },
   { is: /\bvx ?6s/i, pixels: 3_900_000, ports: 6, widest: 4_096, tallest: 4_096 },
   { is: /\bvx ?4[su]?\b/i, pixels: 2_300_000, ports: 4, widest: 3_840, tallest: 1_920 },
-  // The MX range's sheets give the widest picture each takes in, not the widest screen it sends, so neither is checked.
-  { is: /\bmx ?40(?!\d)/i, pixels: 8_800_000, ports: 20 },
-  { is: /\bmx ?30(?!\d)/i, pixels: 6_500_000, ports: 10 },
-  { is: /\bmx ?20(?!\d)/i, pixels: 3_900_000, ports: 6 },
+  // NovaStar's COEX range, from its own wiki (coex.wiki) rather than the first sheets: what each loads at 60 Hz, what a port
+  // carries, and the widest and tallest screen each sends. An MX40 Pro has 20 more ports by fibre, in its 40-port mode:
+  // they come in with the data lines and the fibre that carries them.
+  { is: /\bmx ?40(?!\d)/i, pixels: 9_000_000, ports: 20, line: COEX_PORT_PIXELS, widest: 16_384, tallest: 16_384 },
+  { is: /\bmx ?30(?!\d)/i, pixels: 6_500_000, ports: 10, line: COEX_PORT_PIXELS, widest: 16_384, tallest: 16_384 },
+  { is: /\bmx ?20(?!\d)/i, pixels: 3_900_000, ports: 6, line: COEX_PORT_PIXELS, widest: 4_096, tallest: 4_096 },
+  { is: /\bku ?20(?!\d)/i, pixels: 3_900_000, ports: 6, line: COEX_PORT_PIXELS, widest: 4_096, tallest: 4_096 },
   // 3840 by 2160 on its own sheet; the maker's 2021 catalogue says 4096 by 2160, and the sheet is the one kept to.
   { is: /\bmctrl ?4k/i, pixels: 3_840 * 2_160, ports: 16, widest: 3_840, tallest: 3_840 },
   { is: /\bmctrl ?660 ?pro/i, pixels: 2_300_000, ports: 6, widest: 3_840, tallest: 3_840 },
@@ -680,15 +687,15 @@ interface Picture {
 
 type Limit = 'width' | 'height' | 'pixels' | 'ports'
 
-/** The data lines a picture takes: a port for each 650,000 pixels. */
-const dataLines = (pixels: number) => Math.ceil(pixels / PORT_PIXELS)
+/** The data lines a picture takes from a processor: a port for each 650,000 pixels, or for what its maker says a port carries. */
+const dataLines = (can: Drives, pixels: number) => Math.ceil(pixels / (can.line ?? PORT_PIXELS))
 
 /** The first of a processor's limits that a picture this size breaks, or null where one drives it. */
 function breaks(can: Drives, w: number, h: number): Limit | null {
   if (can.widest !== undefined && w > can.widest) return 'width'
   if (can.tallest !== undefined && h > can.tallest) return 'height'
   if (w * h > can.pixels) return 'pixels'
-  return dataLines(w * h) > can.ports ? 'ports' : null
+  return dataLines(can, w * h) > can.ports ? 'ports' : null
 }
 
 /** How a processor drives the screens asked for. */
@@ -715,7 +722,7 @@ function drivenBy(can: Drives, s: Picture, count: number): Driven {
     const room = (can.widest === undefined ? Infinity : Math.floor(can.widest / s.pixelsW)) * (can.tallest === undefined ? Infinity : Math.floor(can.tallest / s.pixelsH))
     const limits: [number, Driven['by']][] = [
       [Math.floor(can.pixels / pixels), 'pixels'],
-      [Math.floor(can.ports / dataLines(pixels)), 'ports'],
+      [Math.floor(can.ports / dataLines(can, pixels)), 'ports'],
       [room, 'room'],
     ]
     const [each, by] = limits.reduce((least, l) => (l[0] < least[0] ? l : least))
@@ -739,7 +746,7 @@ function drivenWords(can: Drives, d: Driven, s: Picture, count: number): string 
   if (d.units === 1) return `Drives ${millions(can.pixels)} pixels from ${num(can.ports)} ports; ${count > 1 ? 'these screens have' : 'this screen has'} ${num(pixels * count)}`
   if (d.each) {
     const some = d.each === 1 ? 'one of these screens' : `${num(d.each)} of these screens`
-    if (d.by === 'ports') return `One has ${num(can.ports)} ports, which is ${some} at ${plural(dataLines(pixels), 'data line')} each`
+    if (d.by === 'ports') return `One has ${num(can.ports)} ports, which is ${some} at ${plural(dataLines(can, pixels), 'data line')} each`
     if (d.by === 'room') return `One drives a picture up to ${num(can.widest!)} × ${num(can.tallest!)} pixels, which has room for ${some} at ${num(s.pixelsW)} × ${num(s.pixelsH)}`
     return `One drives ${millions(can.pixels)} pixels, which is ${some} at ${num(pixels)} each`
   }
@@ -750,7 +757,7 @@ function drivenWords(can: Drives, d: Driven, s: Picture, count: number): string 
       : d.by === 'height'
         ? `One drives a picture ${num(can.tallest!)} pixels tall at most and ${screen} is ${num(s.pixelsH)}`
         : d.by === 'ports'
-          ? `One has ${num(can.ports)} ports and ${screen} takes ${num(dataLines(pixels))} data lines`
+          ? `One has ${num(can.ports)} ports and ${screen} takes ${num(dataLines(can, pixels))} data lines`
           : `One drives ${millions(can.pixels)} pixels and ${screen} has ${num(pixels)}`
   const parts = d.across * d.down
   const laid = d.across > 1 && d.down > 1 ? `, ${num(d.across)} across and ${num(d.down)} down` : d.across > 1 ? ' side by side' : `, one above ${parts === 2 ? 'the other' : 'another'}`

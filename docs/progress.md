@@ -3,6 +3,59 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 28 November 2026: the MX30 and MX40 held to NovaStar's current figures
+
+**Done (1.245.5, #472, ADR 0207 amended again)**
+
+- Colly chose "All of it, hired kit included" for the LED screen builder:
+  steps 2 to 6 of the research. Then, on the MX40: "you can connect 4 cvt10
+  pros to effectively make it a 40 port processor". Told that its sheet has
+  the four fibre outputs carrying the 20 lines twice: "This can be changed in
+  VMP so that the 4 ports operate independently, rather than cloned", and
+  "https://coex.wiki/ has great up to date documentation".
+- Colly was right, and the sheet read was the first one, of 2022. NovaStar's
+  COEX wiki (its own pages for the MX range, 81 of them, all read) and the
+  MX40 Pro's current sheet (V1.5.1, April 2026) give a 40-port mode: each of
+  the four fibres carries ten lines of its own, with VMP and firmware 1.4.0
+  or later. It is for a backup on every line from one unit, for 10-bit and
+  12-bit shows where a line carries less, and for a second face of a screen.
+  It is not for a bigger screen: the unit still loads 9 million pixels.
+- Three figures the builder held for the MX range were out of date and are
+  put right: an MX40 Pro drives 9 million pixels, not 8.8; an MX30 or MX40
+  Pro sends a screen up to 16,384 pixels wide or tall, where none was
+  checked; and one of their data lines carries 659,722 pixels, not 650,000,
+  which is 40 of the 3.9 mm panels in place of 39. A KU20 is read by name.
+- The research is rewritten around the wiki, in
+  [research/led-processors.md](research/led-processors.md): a new section,
+  "The MX range in full", with the 40 ports, the canvas at each frame rate,
+  what a line carries at each colour depth, how a line may be laid (any
+  shape, no thinner than 128 pixels, up the columns for the shortest delay),
+  backup in VMP and the bigger units to hire. The steps are in the order
+  they will be built: 2, then 4, then 3 with 5, then 6.
+- One finding needs the office: an MX30 or MX40 Pro drives only panels with
+  NovaStar's A series receiving cards, not the older MRV or DH cards. Colly
+  is asked which card is in each of our two panels. Until then every
+  processor is offered for both, as before.
+- Colly also asked which processor suits a hired screen of ROE's V4ST, 26
+  metres by 10. Answered, and worked through in the research: it is 5,616 ×
+  2,160 pixels, so two Brompton SX40s with XD boxes, or the Colorlight
+  equivalent, by the cards in the panels. None of ours drives it.
+- Lesson: for NovaStar's MX range, read coex.wiki, not a distributor's copy
+  of a first sheet.
+
+**Checked**
+
+- The screen builder's 40 tests pass, with a new one that holds each MX and
+  the KU20 to its widest and tallest screen, the MX40 to 9 million pixels
+  and an MX line to 40 panels where a VX1000's is 39; three of them fail
+  against the old figures. Types check.
+
+**Waiting on**
+
+- Colly: which receiving card is in the Absen NT 3.9 and the Gloshine; what
+  is hired in, from whom and at what price; a count for the MX30, MX40, UHD
+  Jnr and CVT Pro.
+
 ## 28 November 2026: a past quote opened from a link waits for the stock list
 
 **Done (1.245.4, #471, no ADR)**

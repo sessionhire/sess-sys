@@ -241,11 +241,29 @@ describe('a hung screen', () => {
     expect(why('Novastar MCTRL4K')).toBe('Drives 8.3 million pixels from 16 ports; this screen has 983,040')
     expect(why('Novastar VX4S-N')).toBe('Drives 2.3 million pixels from 4 ports; this screen has 983,040')
   })
+  it('holds the MX range to what its maker says today: the screen it sends, and what one of its ports carries', () => {
+    const driven = (cols: number, rows: number, count: number, name: string) => {
+      const r = row(screenPlan(ask(cols, rows, 'hung', count), [...stock, product(name, video)], { processor: id(name) }, look), 'processor')
+      return [r.items[0]!.qty, r.why]
+    }
+    // No MX30 or MX40 sends a screen past 16,384 pixels either way, nor an MX20 or KU20 one past 4,096.
+    expect(driven(130, 2, 1, 'Novastar MX40')).toEqual([2, 'One drives a picture 16,384 pixels wide at most and this screen is 16,640: 2 side by side, each driving part of it'])
+    expect(driven(130, 2, 1, 'Novastar MX30')).toEqual([2, 'One drives a picture 16,384 pixels wide at most and this screen is 16,640: 2 side by side, each driving part of it'])
+    expect(driven(33, 4, 1, 'Novastar MX20')).toEqual([2, 'One drives a picture 4,096 pixels wide at most and this screen is 4,224: 2 side by side, each driving part of it'])
+    expect(driven(4, 33, 1, 'Novastar KU20')).toEqual([2, 'One drives a picture 4,096 pixels tall at most and this screen is 4,224: 2, one above the other, each driving part of it'])
+    // 549 panels are just inside the MX40's 9 million pixels, which its first sheet gave as 8.8 million.
+    expect(driven(61, 9, 1, 'Novastar MX40')).toEqual([1, 'Drives 9 million pixels from 20 ports; this screen has 8,994,816'])
+    // A 5 by 2 metre screen is 655,360 pixels: one data line from an MX, whose port carries 659,722, and two from an older
+    // unit, sized at 650,000 a port. So nine of them share one MX30, and five a VX1000 with the same ten ports.
+    expect(driven(10, 4, 9, 'Novastar MX30')).toEqual([1, 'Drives 6.5 million pixels from 10 ports; these screens have 5,898,240'])
+    expect(driven(10, 4, 9, 'Novastar VX1000 processor')).toEqual([2, 'One has 10 ports, which is 5 of these screens at 2 data lines each'])
+  })
   it('knows the bigger processors we hold by whatever they are called, and sends the smallest of ours that drives the screen whole', () => {
     const with_ = (name: string, more: Partial<ScreenProduct> = video) => row(screenPlan(ask(10, 6, 'hung'), [...stock, product(name, more)], { processor: id(name) }, look), 'processor')
     expect(with_('Novastar MX30').why).toBe('Drives 6.5 million pixels from 10 ports; this screen has 983,040')
-    for (const name of ['MX40', 'Novastar MX40 Pro', 'mx 40pro']) expect(with_(name).why).toBe('Drives 8.8 million pixels from 20 ports; this screen has 983,040')
+    for (const name of ['MX40', 'Novastar MX40 Pro', 'mx 40pro']) expect(with_(name).why).toBe('Drives 9 million pixels from 20 ports; this screen has 983,040')
     expect(with_('MX20').why).toBe('Drives 3.9 million pixels from 6 ports; this screen has 983,040')
+    expect(with_('Novastar KU20').why).toBe('Drives 3.9 million pixels from 6 ports; this screen has 983,040')
     for (const name of ['UHD Junior', 'NovaPro UHD Jr', 'Nova star pro UHD jr']) expect(with_(name).why).toBe('Drives 10.4 million pixels from 16 ports; this screen has 983,040')
     expect(with_('NovaPro UHD').why).toBe('Drives 8.8 million pixels from 16 ports; this screen has 983,040')
     expect(with_('NovaPro HD').why).toBe('Drives 2.3 million pixels from 4 ports; this screen has 983,040')
@@ -290,7 +308,7 @@ describe('a hung screen', () => {
       'Drives 2.3 million pixels from 4 ports; this screen has 983,040',
       'Drives 2.3 million pixels from 4 ports; this screen has 983,040',
       'Drives 6.5 million pixels from 10 ports; this screen has 983,040',
-      'Drives 8.8 million pixels from 20 ports; this screen has 983,040',
+      'Drives 9 million pixels from 20 ports; this screen has 983,040',
       'Drives 10.4 million pixels from 16 ports; this screen has 983,040',
     ])
     // The fibre converter drives nothing, with its number in its name or without.
