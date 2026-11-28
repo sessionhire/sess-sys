@@ -3,6 +3,61 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 28 November 2026: an LED screen held to every limit of its processor
+
+**Done (1.245.3, #470, ADR 0207 amended)**
+
+- Colly: "Can you do some research on the LED processors so we can make the
+  led wall builder more advanced?"
+- The research is in [research/led-processors.md](research/led-processors.md):
+  about 30 processors read from their makers' own sheets (NovaStar's VX,
+  NovaPro, MCTRL and MX ranges, Brompton's Tessera, Colorlight), NovaStar's own
+  sum for what one port carries, the five we hold in full with the CVT10 Pro
+  fibre converter, and seven things the builder can do with it, in order.
+- Colly, later the same morning: "we hold mx30s and mx40 and uhd juniors too"
+  and "We also hold CVT 10 Pros in stock if that affects things". The research
+  first said two processors are held, the only two in the stock list, and is
+  rewritten around the five.
+- Colly again: "The mx30 should be in the stock list. Can you see the live
+  app?" It is. The research had gone by a copy of the Current RMS product
+  table of 19 October, not the app. Read from the app's own stock list, all
+  five are there, filed as LED processors ("Novastar VX4S", "Novastar pro HD",
+  "Novastar MX30", "Novastar MX40", "Novastar UHD Jnr"), and the fibre
+  converter as "Novastar CVT Pro". Two of those names were not read by the
+  change as first pushed: "UHD Jnr" got no figures (it knew Jr and Junior),
+  and "CVT Pro", with no number in its name, was still offered as a
+  processor. Both are read now, a product filed as an LED processor is
+  offered as one whatever its name, and a test names all six as the stock
+  list does. Lesson: what is in the stock list is read from the app, not from
+  an export.
+- What it found in the builder: a processor has four limits and the builder
+  checked two. It read the VX4S and the NovaPro HD right, did not know the
+  MX30 or the MX40 Pro, and read a UHD Jr only when its name was written in
+  full. Three hired units were misread: a VX400s as a VX400, an MCTRL660 PRO
+  as an MCTRL660, and the MCTRL4K by its catalogue, not its sheet.
+- Built here, the first of the seven: a screen is held to the widest and
+  tallest picture its processor sends as well as its pixels and ports. The
+  VX4S and the NovaPro HD stop at 3,840 by 1,920 pixels, so a 16 by 2 metre
+  screen of the 3.9 mm panel (4,096 wide) is no longer passed on one. A screen
+  more than one drives
+  is split into the fewest parts that each fit one, in whole panels, and the
+  line says which limit decided it. Several screens share one processor while
+  its pixels, its ports and the room in its picture last. The three misread
+  units are corrected.
+- Built with it once the bigger ones were known: an MX30, MX40 Pro, MX20 and
+  UHD Jr are read by name however it is written ("MX30", "mx 40pro", "UHD
+  Junior", "UHD Jnr", "NovaPro UHD Jr"), a video product with a known model
+  in its name is offered as a processor, and the smallest of ours that drives
+  the screen whole is sent, ours before one hired in. A fibre converter or a
+  receiving card is never offered as a processor.
+- No new question and no change to the sheet: the reason shows where the
+  processor's reason always did.
+- **Waiting on Colly:** which of the next steps to build (Colly asked to be
+  asked again once the research was in line with the stock list), a count in
+  the stock list for the MX30, the MX40, the UHD Jnr and the CVT Pro, which
+  show as none free until they have one, and nine answers from the office
+  listed in the research, starting with the 4.8 mm panel's pixels.
+
 ## 28 November 2026: the webcam's Take photo waits for the picture
 
 **Done (1.245.2, #469)**

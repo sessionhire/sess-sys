@@ -103,3 +103,42 @@ Nothing in the stock list said how big a panel is, and the stock brought in from
 - A quote made from a past job brings a screen's kit as ordinary lines, without the screen's own line. To have it as a
   screen again, it's built again.
 - The panel and the products chosen for each part are remembered on the device, not for the whole office.
+
+## Amended 28 November 2026: a processor's four limits
+
+Colly asked for research on the processors, to make the builder more advanced. It is in
+[docs/research/led-processors.md](../research/led-processors.md): what each processor we hold or are likely to hire
+drives, from its maker's own sheet, and seven things the builder can do with it. The first is built here (1.245.3).
+
+- **A processor is held to four limits, not two.** The pixels it loads and its ports, as before, and now the widest
+  and tallest picture it sends. The VX4S and the NovaPro HD stop at 3,840 pixels wide and 1,920 tall, which is
+  15 metres and 7.5 metres of the 3.9 mm panel: a 16 by 2 metre screen is 4,096 pixels wide and was passed on one
+  of them.
+- **A screen that is more than one drives is split.** Into the fewest parts that each fit one processor, in whole
+  panels, side by side before one above another, and the line names the limit that decided it: "One drives a picture
+  3,840 pixels wide at most and this screen is 4,096: 2 side by side, each driving part of it".
+- **Several screens share one** while its pixels, its ports and the room in its picture last: the screens sit beside
+  or above each other in the one picture it sends.
+- **A name is read whole.** A VX400s (2.3 million pixels) is not a VX400 (2.6 million); an MCTRL660 PRO has six ports
+  to the MCTRL660's four; and the MCTRL4K is held to its sheet's 3840 by 2160, not its catalogue's 4096.
+- **The processors we hold are five, not two.** Colly, the same morning: "we hold mx30s and mx40 and uhd juniors
+  too", then "We also hold CVT 10 Pros in stock if that affects things", then "The mx30 should be in the stock
+  list". It is: the stock list files five as LED processors, "Novastar VX4S", "Novastar pro HD", "Novastar MX30",
+  "Novastar MX40" and "Novastar UHD Jnr", and the research had gone by a copy of the Current RMS product table of
+  19 October that held only the first two. The MX30 (6.5 million pixels from 10 ports), the MX40 Pro (8.8 million
+  from 20) and the UHD Jr (10.4 million from 16) are read by name however it is written: "MX30", "mx 40pro",
+  "UHD Junior", "UHD Jnr", "NovaPro UHD Jr". A product is offered as a processor when it is filed as an LED
+  processor, or is video kit whose name holds a model the builder knows, since "MX30" says neither NovaStar nor
+  processor. The MX sheets give the widest picture each takes in, not the widest screen it sends, so neither is
+  checked on them. A test names all six as the stock list does.
+- **The smallest of ours that drives the screen whole is sent.** The fewest units first, ours before one hired in,
+  then the smallest: a VX4S for a small screen, an MX30 past it, and two VX4S side by side only when nothing bigger
+  is in the stock list.
+- **A fibre converter is not a processor.** A CVT10 Pro carries a processor's data lines to the screen down one
+  fibre and drives nothing, so it is never offered as one, and nor is a receiving card. Ours is "Novastar CVT Pro"
+  in the stock list, with no number in its name, and the builder as first built offered it among the processors
+  because its name says NovaStar: a CVT is left out with its number or without. Counting converters and
+  fibre as the run to the screen belongs to the second step.
+- **Not yet:** data lines counted as they are cabled with the cables or fibre that take them to the screen, a
+  backup on every line, the processor's make matched to the panel's, and what to hire in past our biggest. The
+  research lists them in the order to build them.
