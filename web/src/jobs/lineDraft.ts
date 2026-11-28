@@ -93,7 +93,7 @@ export const sameLine = (a: QuoteLine, b: QuoteLine) =>
   !!a.included === !!b.included &&
   !!a.words === !!b.words &&
   sameScreen(a.screen, b.screen)
-const sameScreen = (a: LineScreen | undefined, b: LineScreen | undefined) => (!a || !b ? !a === !b : a.panel === b.panel && a.cols === b.cols && a.rows === b.rows && a.stands === b.stands)
+const sameScreen = (a: LineScreen | undefined, b: LineScreen | undefined) => (!a || !b ? !a === !b : a.panel === b.panel && a.cols === b.cols && a.rows === b.rows && a.stands === b.stands && !a.backup === !b.backup)
 export const num = (s: string) => Number(s.trim().replace(',', '.'))
 
 /** The field of a typed line that stops it saving, so the error can sit by its cause (design system rule 18). */

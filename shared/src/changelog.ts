@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.247.0',
+    date: '2026-11-28',
+    title: 'An LED screen can have a backup on every data line',
+    what: 'The LED screen builder has one more tick in its kit list: Backup on every data line. A backup is a second cable from the last panel of each line back to a second port on the processor, which takes over if the first feed fails. Ticked, it adds as many long data cables again, and counts two ports on the processor for every line. So a VX4S carries two lines, an MX30 five and an MX40 ten from its own sockets. An 8 by 3.5 metre screen of the 3.9 mm panel, which is four lines, goes from one VX4S to an MX30. By fibre the backups get CVT Pros and fibre of their own, so that losing one converter or one fibre leaves every line fed, and an MX40 keeps all twenty of its lines, in its 40-port mode. The tick starts off. Before it is pressed its line says what it would add, a bigger processor included. Once used it stays ticked for the next screen built on that phone or computer. The quote says it under the screen’s line, "a backup on every data line", and the screen opened again from its line has the tick as it was left. A VX4S asks for a check, since NovaStar’s sheet doesn’t say it backs up one port with another. Where the same cable is on two parts of the kit, what is short on the job’s days is counted over both and said once.',
+    prs: [474],
+    adrs: [209],
+  },
+  {
     version: '1.246.0',
     date: '2026-11-28',
     title: 'An LED screen’s data lines are counted as they are cabled, with the cables or the fibre that take them to it',

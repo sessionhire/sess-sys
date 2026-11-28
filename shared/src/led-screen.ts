@@ -15,7 +15,8 @@ import LedWall from './vendor/ledwall.js'
  * as zero, and every count names the limit that decides it.
  *
  * The data lines are counted as a screen is cabled (ADR 0208): each a tidy block of whole panels, no more than a port
- * carries, with a data cable for every line or, by one tick, fibre converters and a fibre in their place.
+ * carries, with a data cable for every line or, by one tick, fibre converters and a fibre in their place. A backup on
+ * every line (ADR 0209) is one more tick: a second port for each, and as much again of what carries them to the screen.
  *
  * It's a first pass to quote from, and says so: it is not a structural check.
  *
@@ -142,10 +143,10 @@ export function screenWhat(f: Pick<ScreenFacts, 'widthM' | 'heightM'>, stands: S
   return `LED screen ${num(f.widthM, 2)} × ${num(f.heightM, 2)} m, ${stands === 'hung' ? 'hung' : 'ground stacked'}`
 }
 
-/** What's printed under it: "10 panels wide by 6 high · 1,280 × 768 pixels", and "each" for more than one. */
-export function screenIncludes(f: ScreenFacts, count: number): string {
+/** What's printed under it: "10 panels wide by 6 high · 1,280 × 768 pixels", "each" for more than one, and that its data lines have a backup where they do. */
+export function screenIncludes(f: ScreenFacts, count: number, backup = false): string {
   const grid = `${count > 1 ? 'Each ' : ''}${plural(f.cols, 'panel')} wide by ${num(f.rows)} high`
-  return f.pixelsW && f.pixelsH ? `${grid} · ${num(f.pixelsW)} × ${num(f.pixelsH)} pixels` : grid
+  return [grid, ...(f.pixelsW && f.pixelsH ? [`${num(f.pixelsW)} × ${num(f.pixelsH)} pixels`] : []), ...(backup ? ['a backup on every data line'] : [])].join(' · ')
 }
 
 // The kit that goes with panels, found in the stock list by what it's called.
@@ -196,6 +197,8 @@ interface Drives {
   byFibreWants?: string
   /** It has fibre outputs of its own, each carrying this many of its data lines: a converter is then only wanted at the screen. */
   fibre?: number
+  /** Its maker's sheet doesn't say it backs up one port with another: asked to be checked where a backup is wanted. */
+  backupUnsaid?: true
 }
 
 /** What NovaStar's COEX range (MX, KU) has in common, from its own wiki: what a port carries, and how a line is counted. */
@@ -214,7 +217,7 @@ const PROCESSORS: readonly ({ is: RegExp } & Drives)[] = [
   { is: /\bvx ?400/i, pixels: 2_600_000, ports: 4, widest: 10_240, tallest: 8_192 },
   { is: /\bvx ?16s/i, pixels: 10_400_000, ports: 16, widest: 16_384, tallest: 8_192 },
   { is: /\bvx ?6s/i, pixels: 3_900_000, ports: 6, widest: 4_096, tallest: 4_096 },
-  { is: /\bvx ?4[su]?\b/i, pixels: 2_300_000, ports: 4, widest: 3_840, tallest: 1_920 },
+  { is: /\bvx ?4[su]?\b/i, pixels: 2_300_000, ports: 4, widest: 3_840, tallest: 1_920, backupUnsaid: true },
   // NovaStar's COEX range, from its own wiki (coex.wiki) rather than the first sheets: what each loads at 60 Hz, what a port
   // carries, and the widest and tallest screen each sends. Each sends all its ports down one fibre. An MX40 Pro sends ten
   // down each of four in its 40-port mode, where ports 21 to 40 only leave by fibre: still 9 million pixels in all.
@@ -335,7 +338,7 @@ export function lengthsFor(lengths: readonly number[], needM: number): number[] 
 
 // The plan.
 
-export const SCREEN_PARTS = ['panels', 'bars', 'truss', 'motors', 'control', 'plates', 'processor', 'data', 'fibre', 'distro'] as const
+export const SCREEN_PARTS = ['panels', 'bars', 'truss', 'motors', 'control', 'plates', 'processor', 'data', 'fibre', 'backup', 'distro'] as const
 export type ScreenPart = (typeof SCREEN_PARTS)[number]
 
 export interface PlanItem {
@@ -371,6 +374,8 @@ export interface ScreenAsk {
   stands: ScreenStands
   /** The data lines go to the screen by fibre: asked for only where the stock list holds a fibre converter, and left out otherwise. */
   fibre?: boolean
+  /** Every data line has a backup: it runs through its panels and back into a second port, which takes over if the first feed fails. */
+  backup?: boolean
 }
 
 /** What picks between products that could each do a part, by part: a product's id, or a truss family's key. */
@@ -488,8 +493,11 @@ export function screenPlan(ask: ScreenAsk, models: readonly ScreenProduct[], pic
     (m) => (m.dryHire ? 1 : 0)
   )
   const byFibre = !!ask.fibre && converters.length > 0
-  /** The processor, and how it takes the screen's data lines. */
-  const processors = () => {
+  const cables = all.filter((m) => DATA_CABLE.test(m.name) && !NOT_A_DATA_CABLE.test(m.name) && (lengthOf(m) ?? 0) <= MOST_DATA_CABLE_M)
+  // A backup is asked for only where there's something to run it with: a data cable, or the converters.
+  const backed = !!ask.backup && (byFibre || cables.length > 0)
+  /** The processor, and how it takes the screen's data lines: each with a backup, or without. */
+  const processors = (backup: boolean) => {
     const found = preferred(
       all
         .map((m) => ({ m, can: PROCESSORS.find((p) => p.is.test(said(m))) }))
@@ -502,7 +510,7 @@ export function screenPlan(ask: ScreenAsk, models: readonly ScreenProduct[], pic
             (LED_PROCESSOR.test(said(p.m)) || LED_PROCESSOR.test(p.m.category) || (p.m.department === 'video' && (!!p.can || /\bprocessors?\b/i.test(p.m.name))))
         )
         // Worked out once for each: the lines are a search, and putting them in order asks for them many times over.
-        .map((p) => ({ ...p, d: p.can && picture ? drivenBy(p.can, picture, count, byFibre) : null })),
+        .map((p) => ({ ...p, d: p.can && picture ? drivenBy(p.can, picture, count, byFibre, backup) : null })),
       (p) => (p.can ? 0 : 1),
       // The fewest that drive it, ours before one hired in, one that takes its lines as they're cabled before one that has to
       // carry them on, then the smallest that does: a big processor isn't sent to a small screen.
@@ -517,22 +525,25 @@ export function screenPlan(ask: ScreenAsk, models: readonly ScreenProduct[], pic
     const d = p?.d ?? null
     const checks: string[] = []
     if (p && !picture) checks.push("The panel's pixels aren't given, so check it drives this screen.")
-    else if (p && !p.can) checks.push(`Check it drives ${num(picture!.pixelsW * picture!.pixelsH * count)} pixels: what it loads isn't known here.`)
+    else if (p && !p.can) checks.push(`Check it drives ${num(picture!.pixelsW * picture!.pixelsH * count)} pixels${backup ? ', with a second port for every data line' : ''}: what it loads isn't known here.`)
     else if (p?.can && picture && d) {
       const kind = tidyKind(d.laid)
       if (d.runsOn)
         checks.push(
-          `Fits the ${num(d.ports)} ports ${d.units === 1 ? 'it has' : 'each has'} only if a data line ${kind ? `carries on from one ${kind} into part of the next` : "isn't kept to a tidy block of panels"}: in ${kind ? `whole ${kind}s` : 'tidy blocks'} ${d.each ? (count > 1 ? 'each screen' : 'this screen') : 'the biggest part'} takes ${plural(d.tidy, 'line')}.`
+          `Fits the ${num(d.ports)} ports ${d.units === 1 ? 'it has' : 'each has'}${backup ? ', with a backup on every line,' : ''} only if a data line ${kind ? `carries on from one ${kind} into part of the next` : "isn't kept to a tidy block of panels"}: in ${kind ? `whole ${kind}s` : 'tidy blocks'} ${d.each ? (count > 1 ? 'each screen' : 'this screen') : 'the biggest part'} takes ${plural(d.tidy, 'line')}.`
         )
       // An MX40 Pro past its own 20 ports is in its 40-port mode, which not every one of them has.
-      if (d.ports > p.can.ports && d.loads.some((x) => x.lines > p.can!.ports)) checks.push(`More than ${num(p.can.ports)} lines takes its ${num(d.ports)}-port mode${p.can.byFibreWants ? `, which wants ${p.can.byFibreWants}` : ''}.`)
+      const each = backup ? 2 : 1
+      if (d.ports > p.can.ports && d.loads.some((x) => x.lines * each > p.can!.ports))
+        checks.push(`More than ${num(Math.floor(p.can.ports / each))} lines${backup ? ' with a backup on each' : ''} takes its ${num(d.ports)}-port mode${p.can.byFibreWants ? `, which wants ${p.can.byFibreWants}` : ''}.`)
       // Its other 20 ports: said where they'd do it with fewer of them, or keep every line as it's cabled.
       if (!byFibre && p.can.byFibre && converters.length) {
-        const more = drivenBy(p.can, picture, count, true)
+        const more = drivenBy(p.can, picture, count, true, backup)
         const has = `It has ${num(p.can.byFibre)} more ports that only leave by fibre: with Fibre to the screen ticked, `
         if (more.units < d.units) checks.push(`${has}${more.units === 1 ? 'one drives' : `${num(more.units)} drive`} ${count > 1 ? 'these screens' : 'this screen'}.`)
         else if (!more.runsOn && more.laid?.down === 1 && (d.runsOn || d.laid?.down !== 1)) checks.push(`${has}every line keeps to whole columns.`)
       }
+      if (backup && p.can.backupUnsaid) checks.push("Check it backs up one port with another: its maker's sheet doesn't say.")
     }
     const row: PlanRow = {
       part: 'processor',
@@ -546,7 +557,9 @@ export function screenPlan(ask: ScreenAsk, models: readonly ScreenProduct[], pic
     }
     return { row, can: p?.can, driven: d }
   }
-  const drive = processors()
+  const drive = processors(backed)
+  // As it would be with a backup on every line, for saying what that tick adds while it's off.
+  const backedDrive = backed ? drive : processors(true)
   // How a screen's lines are laid: by the processor chosen, or by the planning figures where there's none we know.
   const lined: Lined | null = drive.driven ?? (picture ? plainLines(picture, count) : null)
   /** Every screen's data lines; one a screen where they can't be counted. */
@@ -560,13 +573,14 @@ export function screenPlan(ask: ScreenAsk, models: readonly ScreenProduct[], pic
     const need = lines * each
     const reaches = (m: ScreenProduct) => (lengthOf(m) ?? 0) >= reachM
     const found = preferred(
-      all.filter((m) => DATA_CABLE.test(m.name) && !NOT_A_DATA_CABLE.test(m.name) && (lengthOf(m) ?? 0) <= MOST_DATA_CABLE_M),
+      cables,
       // One whose length is known and that there are enough of, then the longest, to reach from the processor. Where the
       // fibre does the reaching, one that crosses the screen comes before one that doesn't, and the shortest of those. A
       // price only parts two of one length: a cable is picked for how far it goes.
       (m) => (lengthOf(m) === null ? 1 : 0),
       (m) => (byFibre && !reaches(m) ? 1 : 0),
-      (m) => enough(m.id, need),
+      // The backups run on the same cable, so there have to be enough for both.
+      (m) => enough(m.id, need * (backed ? 2 : 1)),
       (m) => (byFibre && reaches(m) ? 1 : -1) * (lengthOf(m) ?? 0),
       (m) => priced(m.id)
     )
@@ -592,19 +606,27 @@ export function screenPlan(ask: ScreenAsk, models: readonly ScreenProduct[], pic
       ...(cable ? {} : { none: 'No data cable found in the stock list.' }),
     }
   }
-  const fibreRow = (): PlanRow => {
+  /**
+   * The converters and the fibre that take a processor's lines to the screen, as they would be with the lines on fibre,
+   * ticked or not. With a backup the same again carries the backups, so there have to be enough of the fibre for both.
+   */
+  const fibreKit = (of: Pick<typeof drive, 'can' | 'driven'>, backup: boolean) => {
     const converter = pick('fibre', converters, (m) => m.id)!
-    // As it would be with the lines on fibre, ticked or not: the row says what ticking it adds.
-    const loads = drive.can && picture ? drivenBy(drive.can, picture, count, true).loads : (lined?.loads ?? [{ units: 1, lines: count }])
-    const own = drive.can?.fibre
+    const loads = of.can && picture ? drivenBy(of.can, picture, count, true, backup).loads : ((of.driven ?? (picture ? plainLines(picture, count) : null))?.loads ?? [{ units: 1, lines: count }])
+    const own = of.can?.fibre
     const perFibre = Math.min(own ?? CONVERTER_LINES, CONVERTER_LINES)
     const atScreen = own ? loads.reduce((n, x) => n + x.units * Math.ceil(x.lines / perFibre), 0) : Math.ceil(loads.reduce((n, x) => n + x.units * x.lines, 0) / CONVERTER_LINES)
     const run = preferred(
       all.filter((m) => FIBRE_RUN.test(m.name) && !NOT_A_FIBRE_RUN.test(m.name) && !FIBRE_CONVERTER.test(said(m))),
-      (m) => enough(m.id, atScreen),
+      (m) => enough(m.id, atScreen * (backup ? 2 : 1)),
       (m) => -(lengthOf(m) ?? 0),
       (m) => priced(m.id)
     )[0]
+    return { converter, own, perFibre, atScreen, run }
+  }
+  const fibreRow = (): PlanRow => {
+    // The row says what ticking it adds.
+    const { converter, own, perFibre, atScreen, run } = fibreKit(drive, backed)
     const checks = [
       run ? '' : 'No fibre found in the stock list to run between them: add what carries it.',
       // The converters are counted by the lines, not by the screens: one may feed more than one of them.
@@ -618,6 +640,42 @@ export function screenPlan(ask: ScreenAsk, models: readonly ScreenProduct[], pic
       ...(checks.length ? { check: checks.join(' ') } : {}),
       choices: converters.map((m) => ({ id: m.id, name: nameWithLength(m) })),
       chosen: converter.id,
+    }
+  }
+  /**
+   * A backup on every data line: as much again of what takes the lines to the screen. It carries what it adds whether it's
+   * ticked or not, counted as the screen would be with it, so the row says what ticking it adds.
+   */
+  const backupRow = (data: PlanRow): PlanRow => {
+    const of = backedDrive
+    const run: Lined | null = of.driven ?? (picture ? plainLines(picture, count) : null)
+    const backups = run ? run.lines * count : count
+    const kit = byFibre ? fibreKit(of, true) : null
+    // By fibre a second cable at the screen for every line, and one more at the processor where that has no fibre output of its own.
+    const each = byFibre && !of.can?.fibre ? 2 : 1
+    const items: PlanItem[] = [
+      ...(data.chosen ? [{ modelId: data.chosen, qty: backups * each }] : []),
+      ...(kit ? [{ modelId: kit.converter.id, qty: kit.atScreen * (kit.own ? 1 : 2) }, ...(kit.run ? [{ modelId: kit.run.id, qty: kit.atScreen }] : [])] : []),
+    ]
+    const to = !run ? 'each screen' : backups === 1 ? 'the data line' : `each of the ${num(backups)} data lines${count > 1 ? ` of the ${num(count)} screens` : ''}`
+    // Where it's off and ticking it would change the processor, that's part of what it adds.
+    const p = of.row.items[0]
+    const was = drive.row.items[0]
+    const changes = !backed && p && (p.modelId !== was?.modelId || p.qty !== was?.qty)
+    const name = (id: string) => nameWithLength(all.find((m) => m.id === id) ?? { name: 'a processor' })
+    return {
+      part: 'backup',
+      label: 'Backup on every data line',
+      items,
+      why:
+        (kit
+          ? `A second way to ${to}, which takes over if the first fails: from its last panel back to a second port on the processor, through ${kit.own ? 'converters' : 'converters at each end'} and fibre of its own`
+          : `A second data cable for ${to}, from its last panel back to a second port on the processor, which takes over if the first feed fails`) +
+        '.' +
+        (changes ? ` With it the processor is ${num(p.qty)} × ${name(p.modelId)}: each line takes two of its ports.` : ''),
+      choices: [],
+      chosen: null,
+      ...(items.length ? {} : { none: 'No data cable found in the stock list to run a backup with.' }),
     }
   }
   const distroRow = () => {
@@ -812,7 +870,8 @@ export function screenPlan(ask: ScreenAsk, models: readonly ScreenProduct[], pic
     }
   }
 
-  rows.push(drive.row, dataRow(), ...(converters.length ? [fibreRow()] : []), distroRow())
+  const data = dataRow()
+  rows.push(drive.row, data, ...(converters.length ? [fibreRow()] : []), backupRow(data), distroRow())
   if (lined)
     working.push(
       `A data line is counted at ${num(drive.can?.line ?? PORT_PIXELS)} pixels, for 60 Hz in 8-bit colour, ${
@@ -827,6 +886,12 @@ export function screenPlan(ask: ScreenAsk, models: readonly ScreenProduct[], pic
     working.push(`A fibre converter is taken to carry ${num(CONVERTER_LINES)} data lines, as NovaStar's CVT10 Pro does. The converters and the fibre between them have to be of one kind: single-mode with single-mode.`)
     working.push(`The data cable offered is the shortest that reaches the far corner of the screen from a converter at one end: ${metresWords(reachM)} or more.`)
   }
+  if (backed)
+    working.push(
+      `A backup is a second port for every data line: the line runs through its panels and back into it, so a processor carries half as many lines.${
+        byFibre ? ' The backups go through converters and fibre of their own, so that losing one converter or one fibre leaves every line fed.' : ''
+      }`
+    )
   if (f.circuits !== null) working.push(`Power is counted in 16 A circuits loaded to four fifths, ${num(Math.round(CIRCUIT_W))} W each.`)
   working.push('The links between panels, mains cables, slings and shackles are not counted: add what the job takes as kit.')
   return { facts: f, lines: lined?.lines ?? null, rows, stands: how, warns, working }
@@ -931,6 +996,8 @@ interface Driven {
   by: Limit | 'room' | null
   /** The ports counted on one: with those that only leave by fibre, where the lines go by fibre. */
   ports: number
+  /** Every line has a backup, which takes a second of those ports. */
+  backed: boolean
   /** The data lines one screen takes from it, over all its parts where it's split. */
   lines: number
   /**
@@ -964,13 +1031,16 @@ function plainLines(s: Picture, count: number): Lined {
  * its ports and the room in its picture allow. A screen that is more than one drives (too wide, too tall, too many
  * pixels, too many lines) is split into the fewest parts that each fit one, side by side before one above another, in
  * whole panels. The lines are counted as they're cabled, in whole columns, unless cutting the columns shorter is what
- * makes them fit, or fit fewer of it. By fibre they're counted against the ports that only leave that way too.
+ * makes them fit, or fit fewer of it. By fibre they're counted against the ports that only leave that way too. With a
+ * backup every line takes a second port, so one carries half as many lines.
  */
-function drivenBy(can: Drives, s: Picture, count: number, byFibre: boolean): Driven {
+function drivenBy(can: Drives, s: Picture, count: number, byFibre: boolean, backed = false): Driven {
   const ports = can.ports + (byFibre ? (can.byFibre ?? 0) : 0)
+  /** The lines one carries. */
+  const carries = backed ? Math.max(1, Math.floor(ports / 2)) : ports
   const panelW = s.pixelsW / s.cols
   const panelH = s.pixelsH / s.rows
-  const whole = breaks(can, s.cols, s.rows, panelW, panelH, ports)
+  const whole = breaks(can, s.cols, s.rows, panelW, panelH, carries)
   if (!whole) {
     const pixels = s.pixelsW * s.pixelsH
     const l = linesFor(can, s.cols, s.rows, panelW, panelH)
@@ -979,7 +1049,7 @@ function drivenBy(can: Drives, s: Picture, count: number, byFibre: boolean): Dri
     const eachAt = (lines: number) => {
       const limits: [number, Driven['by']][] = [
         [Math.floor(can.pixels / pixels), 'pixels'],
-        [Math.floor(ports / lines), 'ports'],
+        [Math.floor(carries / lines), 'ports'],
         [room, 'room'],
       ]
       return limits.reduce((least, x) => (x[0] < least[0] ? x : least))
@@ -995,6 +1065,7 @@ function drivenBy(can: Drives, s: Picture, count: number, byFibre: boolean): Dri
       down: 1,
       by: each >= count ? null : by,
       ports,
+      backed,
       lines: way.lines,
       laid: way.laid,
       runsOn: way.runsOn,
@@ -1006,7 +1077,7 @@ function drivenBy(can: Drives, s: Picture, count: number, byFibre: boolean): Dri
   let best = { across: s.cols, down: s.rows }
   for (let down = 1; down <= s.rows; down++)
     for (let across = 1; across <= s.cols && across * down < best.across * best.down; across++)
-      if (!breaks(can, Math.ceil(s.cols / across), Math.ceil(s.rows / down), panelW, panelH, ports)) {
+      if (!breaks(can, Math.ceil(s.cols / across), Math.ceil(s.rows / down), panelW, panelH, carries)) {
         best = { across, down }
         break
       }
@@ -1022,14 +1093,14 @@ function drivenBy(can: Drives, s: Picture, count: number, byFibre: boolean): Dri
   for (const [rows, tall] of shared(s.rows, best.down))
     for (const [cols, wide] of shared(s.cols, best.across)) {
       const ways = waysToLay(linesFor(can, cols, rows, panelW, panelH))
-      const way = ways.find((w) => w.lines <= ports) ?? ways.at(-1)!
+      const way = ways.find((w) => w.lines <= carries) ?? ways.at(-1)!
       runsOn ||= way.runsOn
       lines += way.lines * wide * tall
       loads.push({ units: wide * tall * count, lines: way.lines })
     }
   const most = linesFor(can, Math.ceil(s.cols / best.across), Math.ceil(s.rows / best.down), panelW, panelH)
-  const way = waysToLay(most).find((w) => w.lines <= ports) ?? waysToLay(most).at(-1)!
-  return { units: best.across * best.down * count, each: 0, across: best.across, down: best.down, by: whole, ports, lines, laid: way.laid, runsOn, tidy: most.tidy, runEach: most.runEach, loads }
+  const way = waysToLay(most).find((w) => w.lines <= carries) ?? waysToLay(most).at(-1)!
+  return { units: best.across * best.down * count, each: 0, across: best.across, down: best.down, by: whole, ports, backed, lines, laid: way.laid, runsOn, tidy: most.tidy, runEach: most.runEach, loads }
 }
 
 /** Why this many processors, naming the limit that decides it. */
@@ -1037,10 +1108,13 @@ function drivenWords(can: Drives, d: Driven, s: Picture, count: number): string 
   const pixels = s.pixelsW * s.pixelsH
   const ports = `${num(d.ports)} ports${d.ports > can.ports ? ' by fibre' : ''}`
   // One that drives it all: the ports that only leave by fibre are spoken of where the lines want them.
-  if (d.units === 1) return `Drives ${millions(can.pixels)} pixels from ${d.lines * count > can.ports ? ports : `${num(can.ports)} ports`}; ${count > 1 ? 'these screens have' : 'this screen has'} ${num(pixels * count)} in ${plural(d.lines * count, 'data line')}`
+  const lines = d.lines * count
+  // With a backup the ports the lines take are said too: they're what the processor is short of first.
+  const withBackups = d.backed ? `, ${lines === 1 ? 'with a backup' : 'each with a backup'}: ${num(lines * 2)} ports` : ''
+  if (d.units === 1) return `Drives ${millions(can.pixels)} pixels from ${lines * (d.backed ? 2 : 1) > can.ports ? ports : `${num(can.ports)} ports`}; ${count > 1 ? 'these screens have' : 'this screen has'} ${num(pixels * count)} in ${plural(lines, 'data line')}${withBackups}`
   if (d.each) {
     const some = d.each === 1 ? 'one of these screens' : `${num(d.each)} of these screens`
-    if (d.by === 'ports') return `One has ${ports}, which is ${some} at ${plural(d.lines, 'data line')} each`
+    if (d.by === 'ports') return `One has ${ports}, which is ${some} at ${plural(d.lines, 'data line')} each${d.backed ? ', every line with a backup' : ''}`
     if (d.by === 'room') return `One drives a picture up to ${num(can.widest!)} × ${num(can.tallest!)} pixels, which has room for ${some} at ${num(s.pixelsW)} × ${num(s.pixelsH)}`
     return `One drives ${millions(can.pixels)} pixels, which is ${some} at ${num(pixels)} each`
   }
@@ -1051,7 +1125,7 @@ function drivenWords(can: Drives, d: Driven, s: Picture, count: number): string 
       : d.by === 'height'
         ? `One drives a picture ${num(can.tallest!)} pixels tall at most and ${screen} is ${num(s.pixelsH)}`
         : d.by === 'ports'
-          ? `One has ${ports} and ${screen} takes ${num(linesFor(can, s.cols, s.rows, s.pixelsW / s.cols, s.pixelsH / s.rows).fewest)} data lines`
+          ? `One has ${ports} and ${screen} takes ${num(linesFor(can, s.cols, s.rows, s.pixelsW / s.cols, s.pixelsH / s.rows).fewest)} data lines${d.backed ? ', each with a backup' : ''}`
           : `One drives ${millions(can.pixels)} pixels and ${screen} has ${num(pixels)}`
   const parts = d.across * d.down
   const laid = d.across > 1 && d.down > 1 ? `, ${num(d.across)} across and ${num(d.down)} down` : d.across > 1 ? ' side by side' : `, one above ${parts === 2 ? 'the other' : 'another'}`

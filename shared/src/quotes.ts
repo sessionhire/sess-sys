@@ -136,13 +136,15 @@ export const MOST_SCREEN_ROWS = 200
 /**
  * The answers an LED screen was built from (ADR 0207), kept on its line so that pressing it opens the builder on them
  * again: which panel, how many across and down for one screen, and how it stands. The line's quantity is how many
- * screens like it. Its kit is the lines under it, counted for all of them.
+ * screens like it. Its kit is the lines under it, counted for all of them. Whether every data line has a backup (ADR
+ * 0209) is kept here too, only where it has: the kit says it by its counts alone, which the office can change.
  */
 export const lineScreen = z.object({
   panel: id,
   cols: whole(1, MOST_SCREEN_COLS, 'Panels across'),
   rows: whole(1, MOST_SCREEN_ROWS, 'Panels down'),
   stands: z.enum(SCREEN_STANDS),
+  backup: z.boolean().optional(),
 })
 export type LineScreen = z.infer<typeof lineScreen>
 

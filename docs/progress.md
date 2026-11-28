@@ -3,6 +3,63 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 28 November 2026: a backup on every data line
+
+**Done (1.247.0, #474, [ADR 0209](adr/0209-a-backup-on-every-data-line.md))**
+
+- The third of the steps Colly chose for the LED screen builder to be built,
+  the fourth in the research's list: one tick, "Backup on every data line",
+  after Fibre to the screen in the kit list.
+- A backup is a second port for every line: the line runs through its panels
+  and a second cable comes back from its last panel. So a processor carries
+  half its ports in lines (a VX4S two, an MX30 five, an MX40 ten from its
+  sockets), and the builder sends the smallest of ours that still drives the
+  screen. An 8 by 3.5 metre screen of the 3.9 mm panel, four lines, goes
+  from one VX4S to an MX30.
+- By cable it adds as many long cables again, the same cable as the lines,
+  one there are enough of for both. By fibre it adds as many short cables
+  again with converters and fibre of their own, so that losing one converter
+  or one fibre leaves every line fed.
+- An MX40 keeps all 20 lines by fibre, in its 40-port mode, and past ten
+  lines its line says what that mode wants. By cable its line says when the
+  fibre tick would do better.
+- It starts unticked and stays as it was left on that device, as fibre does.
+  Unticked, it says what it would add, and where it would change the
+  processor it says that too, before the tick is pressed.
+- The answer is kept on the screen's line on the quote, and printed under it
+  for the client: "a backup on every data line". Opened again from its line,
+  the screen has the tick as it was left, and unticking lists the change.
+- A VX4S asks for a check: its maker's sheet doesn't say it backs up one port
+  with another.
+- Where two parts take the same product (the data cables and their backups),
+  what is short on the job's days is counted over both and said once.
+
+**Checked**
+
+- 61 tests of the sums, 8 of them new: by cable and by fibre, each of our
+  processors, the MX40's 40-port mode, a cable or fibre there aren't enough
+  of for both, and a stock list with no data cable.
+- Six browser tests, one new: the tick at a desk, what it says before it is
+  pressed, the second processor and the cables it adds, what is short said
+  once, the quote's line, the screen opened again from it, what unticking
+  lists, and the next screen starting with a backup. The sheet was looked at
+  with the tick off and on.
+
+**Left for later** (in the ADR): an MX40 with its lines on its own sockets
+and only the backups by fibre; a whole second processor standing by; and a
+setting in Admin to start the tick on for everybody, if a backup on every
+line is the house standard.
+
+**Waiting on Colly**
+
+- Whether the Absen's card is the A5s or the A5s Plus (an MX drives only the
+  Plus). The Gloshine's A4s is settled: no MX. Step 3, next, puts the card
+  on each panel's product and offers only the processors that drive it.
+- Whether a backup on every data line is the house standard.
+- Counts for the MX30s, MX40s, UHD Jnrs and CVT Pros; whether the MX40s are
+  on VMP and firmware 1.4.0 or later; the VMP question on the 4.8 mm panel;
+  the list of what is hired in.
+
 ## 28 November 2026: a screen's data lines, and what takes them to it
 
 **Done (1.246.0, #473, [ADR 0208](adr/0208-a-screens-data-lines-and-what-takes-them-to-it.md))**
