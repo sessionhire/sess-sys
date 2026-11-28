@@ -3,6 +3,34 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 28 November 2026: a past quote opened from a link waits for the stock list
+
+**Done (1.245.4, #471, no ADR)**
+
+- Found in the checks of #470, not asked for: a browser test of making a job
+  from a past Current RMS quote failed once with "0 of 1 kit line found in
+  the stock list". Run again by the next commit it passed, and that is not
+  an answer, so the cause was looked for.
+- The cause: the form that makes a job from a past quote reads the stock
+  list, the price list and the jobs once, as it opens, so what is chosen on
+  it stays put while the copy syncs. Opened from a link on a device new to
+  the app (`#jobs/money/current-rms/7/job`), it can open before the device's
+  first copy has arrived. It then read an empty stock list: every line "as
+  written", no job it is for, and it never looked again.
+- The fix: the two forms (Make a job from this, Put it on a job's quote)
+  are not opened until the copy has arrived. Meanwhile their card says, in
+  Home's own words, "Still catching up: this shows once the company's copy
+  has arrived on this device." The past quote itself shows at once, since it
+  comes from the server.
+- A browser test holds the copy back, opens the link, sees the waiting line
+  and no form, lets the copy arrive and sees the line found in the stock
+  list. It fails without the fix.
+
+**Checked**
+
+- The five tests of `e2e/rms-history.spec.ts` pass, the new one among them;
+  the new one fails with the fix taken out. Types check.
+
 ## 28 November 2026: an LED screen held to every limit of its processor
 
 **Done (1.245.3, #470, ADR 0207 amended)**
