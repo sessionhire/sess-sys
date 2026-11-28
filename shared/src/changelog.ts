@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.245.3',
+    date: '2026-11-28',
+    title: 'An LED screen is held to the widest and tallest picture its processor sends',
+    what: 'The LED screen builder checked a screen’s pixels against what the processor drives. It now checks how wide and how tall the screen is in pixels too. Each of our two processors stops at 3,840 pixels wide and 1,920 tall, which is 15 metres and 7.5 metres of the 3.9 mm panel, so a very wide, low screen was passed on one processor that could not drive it. Where a screen is more than one processor drives, the builder asks for enough to drive it in parts, side by side, and says which limit decided it. Three processors we might hire were read with the wrong figures (the VX400s, the MCTRL660 PRO and the MCTRL4K) and are corrected. The research behind it is in the Blueprint, under “LED processors: what they can drive”.',
+    prs: [470],
+    adrs: [207],
+  },
+  {
     version: '1.245.2',
     date: '2026-11-28',
     title: 'The webcam’s Take photo waits for the picture',

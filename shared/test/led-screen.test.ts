@@ -201,6 +201,46 @@ describe('a hung screen', () => {
     // 24 by 12 panels is 3,072 by 1,536: 4.7 million pixels, more than one of these drives.
     expect(items(screenPlan(ask(24, 12, 'hung'), stock, {}, look), 'processor')).toEqual([[id('Novastar vx4s Processor'), 3]])
   })
+  it('holds a screen to every limit of its processor, and names the one that decides', () => {
+    const driven = (cols: number, rows: number, count = 1, name = 'Novastar vx4s Processor') => {
+      const r = row(screenPlan(ask(cols, rows, 'hung', count), [...stock, product(name, video)], { processor: id(name) }, look), 'processor')
+      return [r.items[0]!.qty, r.why]
+    }
+    // 32 panels across is 4,096 pixels: fewer than it loads, and wider than the picture it sends.
+    expect(driven(32, 4)).toEqual([2, 'One drives a picture 3,840 pixels wide at most and this screen is 4,096: 2 side by side, each driving part of it'])
+    expect(driven(6, 17)).toEqual([2, 'One drives a picture 1,920 pixels tall at most and this screen is 2,176: 2, one above the other, each driving part of it'])
+    expect(driven(24, 12)).toEqual([3, 'One drives 2.3 million pixels and this screen has 4,718,592: 3 side by side, each driving part of it'])
+    // Too wide, too tall and too many at once: halves each way are still 3.3 million, so it's thirds across.
+    expect(driven(40, 20)).toEqual([6, 'One drives a picture 3,840 pixels wide at most and this screen is 5,120: 6, 3 across and 2 down, each driving part of it'])
+    expect(driven(32, 4, 2)).toEqual([4, 'One drives a picture 3,840 pixels wide at most and each of these screens is 4,096: 2 side by side for every screen, each driving part of it'])
+    // Several screens share one while its pixels, its ports and the room in its picture last.
+    expect(driven(10, 6, 2)).toEqual([1, 'Drives 2.3 million pixels from 4 ports; these screens have 1,966,080'])
+    expect(driven(10, 6, 3)).toEqual([2, 'One drives 2.3 million pixels, which is 2 of these screens at 983,040 each'])
+    expect(driven(12, 8, 2)).toEqual([2, 'One drives 2.3 million pixels, which is one of these screens at 1,572,864 each'])
+    // An MCTRL300's picture is 2,048 by 1,200 at most. Two screens of 1,152 by 512 go in it one above the other. Two of
+    // 1,040 by 624 are within its pixels and its ports, and fit neither beside nor above each other.
+    const small = 'Novastar MCTRL300 sending box'
+    expect(driven(9, 4, 2, small)).toEqual([1, 'Drives 1.3 million pixels from 2 ports; these screens have 1,179,648'])
+    const coarse = { ...absen, panel: { ...HALF, pixelsW: 104, pixelsH: 104 } }
+    const tight = row(screenPlan(ask(10, 6, 'hung', 2, coarse), [...stock, product(small, video)], { processor: id(small) }, look), 'processor')
+    expect([tight.items[0]!.qty, tight.why]).toEqual([2, 'One drives a picture up to 2,048 × 1,200 pixels, which has room for one of these screens at 1,040 × 624'])
+    // A bigger one that drives it whole is taken before two of ours.
+    const hired = product('Novastar VX1000 processor', video)
+    expect(items(screenPlan(ask(32, 4, 'hung'), [...stock, hired], {}, look), 'processor')).toEqual([[hired.id, 1]])
+  })
+  it('reads a processor by its whole name, with what its own sheet says it drives', () => {
+    const why = (name: string) => row(screenPlan(ask(10, 6, 'hung'), [...stock, product(name, video)], { processor: id(name) }, look), 'processor').why
+    // A VX400s is the older unit, not a VX400; an MCTRL660 PRO has six ports, not the MCTRL660's four.
+    expect(why('Novastar VX400s')).toBe('Drives 2.3 million pixels from 4 ports; this screen has 983,040')
+    expect(why('Novastar VX400')).toBe('Drives 2.6 million pixels from 4 ports; this screen has 983,040')
+    expect(why('Novastar VX400 Pro')).toBe('Drives 2.6 million pixels from 4 ports; this screen has 983,040')
+    expect(why('Novastar MCTRL660 PRO')).toBe('Drives 2.3 million pixels from 6 ports; this screen has 983,040')
+    expect(why('Novastar MCTRL660')).toBe('Drives 2.3 million pixels from 4 ports; this screen has 983,040')
+    expect(why('Novastar MCTRL600')).toBe('Drives 2.3 million pixels from 4 ports; this screen has 983,040')
+    // 3840 by 2160, as its sheet has it.
+    expect(why('Novastar MCTRL4K')).toBe('Drives 8.3 million pixels from 16 ports; this screen has 983,040')
+    expect(why('Novastar VX4S-N')).toBe('Drives 2.3 million pixels from 4 ports; this screen has 983,040')
+  })
   it('counts every screen, and shares what can be shared', () => {
     const pair = screenPlan(ask(6, 4, 'hung', 2), stock, {}, look)
     expect(items(pair, 'panels')).toEqual([[absen.id, 48]])

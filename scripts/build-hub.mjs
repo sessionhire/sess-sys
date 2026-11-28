@@ -34,6 +34,7 @@ const DOCS = [
   ['Roadmap', 'docs/roadmap.md'],
   ['Bringing in the crew list', 'docs/research/crew-import.md'],
   ['Quoting: faster, easier, more reliable', 'docs/research/quoting.md'],
+  ['LED processors: what they can drive', 'docs/research/led-processors.md'],
   ['Starter packages from past quotes', 'docs/research/package-starter-list.md'],
   ['Native iPhone and Android apps', 'docs/research/native-apps.md'],
   ['Job offers over WhatsApp', 'docs/research/whatsapp-offers.md'],

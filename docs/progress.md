@@ -3,7 +3,36 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
-## 28 November 2026: the webcam's Take photo waits for the picture
+## 28 November 2026: an LED screen held to every limit of its processor
+
+**Done (1.245.3, #470, ADR 0207 amended)**
+
+- Colly: "Can you do some research on the LED processors so we can make the
+  led wall builder more advanced?"
+- The research is in [research/led-processors.md](research/led-processors.md):
+  about 30 processors read from their makers' own sheets (NovaStar's VX,
+  NovaPro, MCTRL and MX ranges, Brompton's Tessera, Colorlight), NovaStar's own
+  sum for what one port carries, the two we hold in full, and seven things the
+  builder can do with it, in order.
+- What it found in the builder: a processor has four limits and the builder
+  checked two. Its figures for the two we hold were right. Three hired units
+  were misread: a VX400s as a VX400, an MCTRL660 PRO as an MCTRL660, and the
+  MCTRL4K by its catalogue, not its sheet.
+- Built here, the first of the seven: a screen is held to the widest and
+  tallest picture its processor sends as well as its pixels and ports. Each of
+  ours stops at 3,840 by 1,920 pixels, so a 16 by 2 metre screen of the 3.9 mm
+  panel (4,096 wide) is no longer passed on one. A screen more than one drives
+  is split into the fewest parts that each fit one, in whole panels, and the
+  line says which limit decided it. Several screens share one processor while
+  its pixels, its ports and the room in its picture last. The three misread
+  units are corrected.
+- No new question and no change to the sheet: the reason shows where the
+  processor's reason always did.
+- **Waiting on Colly:** which of the next steps to build (asked in the thread:
+  lines as cabled and known processors matched to the panel are recommended
+  next), and six answers from the office listed in the research, starting
+  with each panel's pixels.
+
 
 **Done (1.245.2, #469)**
 

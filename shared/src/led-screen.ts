@@ -152,24 +152,40 @@ const DISTRO = /\bdistro(?:s|bution)?\b/i
 const FOR_SCREENS = /\b(video|led|screens?|soca|socapex)\b/i
 const LED_PROCESSOR = /\bnova ?star|\bnovapro|\bvx ?\d|\bmctrl|\bbrompton|\btessera|\bcolorlight|\blinsn|\bled (?:wall |screen |video )?(?:processor|controller)s?\b|\bsending (?:box|card)/i
 
+/** What a processor drives, from its maker's spec sheet. */
+interface Drives {
+  /** The pixels one loads in all. */
+  pixels: number
+  /** Its Gigabit ports. */
+  ports: number
+  /** The widest and tallest picture it sends, in pixels. Left out where its sheet doesn't say, and then not checked. */
+  widest?: number
+  tallest?: number
+}
+
 /**
- * What the processors we're likely to meet drive, from their makers' spec sheets: the pixels one loads, and its
- * Gigabit ports. Told by the model in the name; a processor not here is still offered, with its capacity to be checked.
+ * What the processors we're likely to meet drive, each from its maker's own sheet (the research and its sources are in
+ * docs/research/led-processors.md). Told by the model in the name, the longer name before the one it starts with: a VX400s is
+ * not a VX400, nor an MCTRL660 PRO an MCTRL660. A processor not here is still offered, with its capacity to be checked.
  */
-const PROCESSORS: readonly { is: RegExp; pixels: number; ports: number }[] = [
-  { is: /\bvx ?2000/i, pixels: 13_000_000, ports: 20 },
-  { is: /\bvx ?1000/i, pixels: 6_500_000, ports: 10 },
-  { is: /\bvx ?600/i, pixels: 3_900_000, ports: 6 },
-  { is: /\bvx ?400/i, pixels: 2_600_000, ports: 4 },
-  { is: /\bvx ?16s/i, pixels: 10_400_000, ports: 16 },
-  { is: /\bvx ?6s/i, pixels: 3_900_000, ports: 6 },
-  { is: /\bvx ?4[su]?\b/i, pixels: 2_300_000, ports: 4 },
-  { is: /\bmctrl ?4k/i, pixels: 8_800_000, ports: 16 },
-  { is: /\bmctrl ?6[06]0/i, pixels: 2_300_000, ports: 4 },
-  { is: /\bmctrl ?300/i, pixels: 1_300_000, ports: 2 },
-  { is: /\bnova.*\bpro ?uhd ?jr/i, pixels: 10_400_000, ports: 16 },
-  { is: /\bnova.*\bpro ?uhd/i, pixels: 8_800_000, ports: 16 },
-  { is: /\bnova.*\bpro ?hd/i, pixels: 2_300_000, ports: 4 },
+const PROCESSORS: readonly ({ is: RegExp } & Drives)[] = [
+  { is: /\bvx ?2000/i, pixels: 13_000_000, ports: 20, widest: 16_384, tallest: 8_192 },
+  { is: /\bvx ?1000/i, pixels: 6_500_000, ports: 10, widest: 10_240, tallest: 8_192 },
+  { is: /\bvx ?600/i, pixels: 3_900_000, ports: 6, widest: 10_240, tallest: 8_192 },
+  { is: /\bvx ?400s/i, pixels: 2_300_000, ports: 4 },
+  { is: /\bvx ?400/i, pixels: 2_600_000, ports: 4, widest: 10_240, tallest: 8_192 },
+  { is: /\bvx ?16s/i, pixels: 10_400_000, ports: 16, widest: 16_384, tallest: 8_192 },
+  { is: /\bvx ?6s/i, pixels: 3_900_000, ports: 6, widest: 4_096, tallest: 4_096 },
+  { is: /\bvx ?4[su]?\b/i, pixels: 2_300_000, ports: 4, widest: 3_840, tallest: 1_920 },
+  // 3840 by 2160 on its own sheet; the maker's 2021 catalogue says 4096 by 2160, and the sheet is the one kept to.
+  { is: /\bmctrl ?4k/i, pixels: 3_840 * 2_160, ports: 16, widest: 3_840, tallest: 3_840 },
+  { is: /\bmctrl ?660 ?pro/i, pixels: 2_300_000, ports: 6, widest: 3_840, tallest: 3_840 },
+  { is: /\bmctrl ?660/i, pixels: 2_300_000, ports: 4, widest: 3_840, tallest: 3_840 },
+  { is: /\bmctrl ?600/i, pixels: 2_300_000, ports: 4, widest: 3_840, tallest: 2_560 },
+  { is: /\bmctrl ?300/i, pixels: 1_300_000, ports: 2, widest: 2_048, tallest: 1_200 },
+  { is: /\bnova.*\bpro ?uhd ?jr/i, pixels: 10_400_000, ports: 16, widest: 16_384, tallest: 8_192 },
+  { is: /\bnova.*\bpro ?uhd/i, pixels: 8_800_000, ports: 16, widest: 8_192, tallest: 8_192 },
+  { is: /\bnova.*\bpro ?hd/i, pixels: 2_300_000, ports: 4, widest: 3_840, tallest: 1_920 },
 ]
 
 /**
@@ -414,30 +430,26 @@ export function screenPlan(ask: ScreenAsk, models: readonly ScreenProduct[], pic
 
   const families = trussFamilies(all)
   const processorsRow = () => {
+    const picture = f.pixelsW && f.pixelsH ? { cols: f.cols, rows: f.rows, pixelsW: f.pixelsW, pixelsH: f.pixelsH } : null
     const found = preferred(
       all
         .filter((m) => LED_PROCESSOR.test(said(m)) || (m.department === 'video' && /\bprocessors?\b/i.test(m.name)))
         .map((m) => ({ m, can: PROCESSORS.find((p) => p.is.test(said(m))) })),
       (p) => (p.can ? 0 : 1),
       // The fewest that drive it, then the smallest that does: a big processor isn't sent to a small screen.
-      (p) => (p.can && f.pixelsW && f.pixelsH ? processorsFor(p.can, f.pixelsW * f.pixelsH, count) : 1),
+      (p) => (p.can && picture ? drivenBy(p.can, picture, count).units : 1),
       (p) => priced(p.m.id),
       (p) => p.can?.pixels ?? 0,
       (p) => enough(p.m.id, 1)
     )
-    const pixels = f.pixelsW && f.pixelsH ? f.pixelsW * f.pixelsH : null
-    const p = pick('processor', found, (x) => x.m.id, (x) => (x.can && pixels ? processorsFor(x.can, pixels, count) : 1))
-    const need = p?.can && pixels ? processorsFor(p.can, pixels, count) : 1
+    const p = pick('processor', found, (x) => x.m.id, (x) => (x.can && picture ? drivenBy(x.can, picture, count).units : 1))
+    const driven = p?.can && picture ? drivenBy(p.can, picture, count) : null
     const row: PlanRow = {
       part: 'processor',
       label: 'Processor',
-      items: p ? [{ modelId: p.m.id, qty: need }] : [],
-      why: !p
-        ? ''
-        : p.can && pixels
-          ? `Drives ${millions(p.can.pixels)} pixels from ${num(p.can.ports)} ports; ${count > 1 ? 'these screens have' : 'this screen has'} ${num(pixels * count)}`
-          : 'One to drive it',
-      ...(p && !pixels ? { check: "The panel's pixels aren't given, so check it drives this screen." } : p && !p.can ? { check: `Check it drives ${num(pixels! * count)} pixels: what it loads isn't known here.` } : {}),
+      items: p ? [{ modelId: p.m.id, qty: driven?.units ?? 1 }] : [],
+      why: !p ? '' : p.can && picture && driven ? drivenWords(p.can, driven, picture, count) : 'One to drive it',
+      ...(p && !picture ? { check: "The panel's pixels aren't given, so check it drives this screen." } : p && !p.can ? { check: `Check it drives ${num(picture!.pixelsW * picture!.pixelsH * count)} pixels: what it loads isn't known here.` } : {}),
       choices: found.map((x) => ({ id: x.m.id, name: nameWithLength(x.m) })),
       chosen: p?.m.id ?? null,
       ...(p ? {} : { none: 'No LED processor found in the stock list.' }),
@@ -644,10 +656,91 @@ export function screenPlan(ask: ScreenAsk, models: readonly ScreenProduct[], pic
 
 const millions = (pixels: number) => `${num(pixels / 1_000_000, 1)} million`
 
-/** How many of a processor drive the screens: enough for the pixels, and a port for each 650,000 pixels of each screen. */
-function processorsFor(can: { pixels: number; ports: number }, pixels: number, count: number): number {
-  const ports = Math.ceil(pixels / PORT_PIXELS) * count
-  return Math.max(1, Math.ceil((pixels * count) / can.pixels), Math.ceil(ports / can.ports))
+/** A screen as a processor sees it: its panels across and down, and its picture in pixels. */
+interface Picture {
+  cols: number
+  rows: number
+  pixelsW: number
+  pixelsH: number
+}
+
+type Limit = 'width' | 'height' | 'pixels' | 'ports'
+
+/** The data lines a picture takes: a port for each 650,000 pixels. */
+const dataLines = (pixels: number) => Math.ceil(pixels / PORT_PIXELS)
+
+/** The first of a processor's limits that a picture this size breaks, or null where one drives it. */
+function breaks(can: Drives, w: number, h: number): Limit | null {
+  if (can.widest !== undefined && w > can.widest) return 'width'
+  if (can.tallest !== undefined && h > can.tallest) return 'height'
+  if (w * h > can.pixels) return 'pixels'
+  return dataLines(w * h) > can.ports ? 'ports' : null
+}
+
+/** How a processor drives the screens asked for. */
+interface Driven {
+  /** How many of it that takes. */
+  units: number
+  /** How many of the screens one drives; none where a screen is more than one drives, and is split between `across` by `down` of them. */
+  each: number
+  across: number
+  down: number
+  /** The limit that makes it more than one. `room`: its picture has no room for another screen beside or under the first. */
+  by: Limit | 'room' | null
+}
+
+/**
+ * How many of a processor drive the screens, and the limit that decides it. One drives as many screens as its pixels,
+ * its ports and the room in its picture allow. A screen that is more than one drives (too wide, too tall, too many
+ * pixels) is split into the fewest parts that each fit one, side by side before one above another, in whole panels.
+ */
+function drivenBy(can: Drives, s: Picture, count: number): Driven {
+  const whole = breaks(can, s.pixelsW, s.pixelsH)
+  if (!whole) {
+    const pixels = s.pixelsW * s.pixelsH
+    const room = (can.widest === undefined ? Infinity : Math.floor(can.widest / s.pixelsW)) * (can.tallest === undefined ? Infinity : Math.floor(can.tallest / s.pixelsH))
+    const limits: [number, Driven['by']][] = [
+      [Math.floor(can.pixels / pixels), 'pixels'],
+      [Math.floor(can.ports / dataLines(pixels)), 'ports'],
+      [room, 'room'],
+    ]
+    const [each, by] = limits.reduce((least, l) => (l[0] < least[0] ? l : least))
+    return { units: Math.ceil(count / each), each, across: 1, down: 1, by: each >= count ? null : by }
+  }
+  const panelW = s.pixelsW / s.cols
+  const panelH = s.pixelsH / s.rows
+  let best = { across: s.cols, down: s.rows }
+  for (let down = 1; down <= s.rows; down++)
+    for (let across = 1; across <= s.cols && across * down < best.across * best.down; across++)
+      if (!breaks(can, Math.ceil(s.cols / across) * panelW, Math.ceil(s.rows / down) * panelH)) {
+        best = { across, down }
+        break
+      }
+  return { units: best.across * best.down * count, each: 0, across: best.across, down: best.down, by: whole }
+}
+
+/** Why this many processors, naming the limit that decides it. */
+function drivenWords(can: Drives, d: Driven, s: Picture, count: number): string {
+  const pixels = s.pixelsW * s.pixelsH
+  if (d.units === 1) return `Drives ${millions(can.pixels)} pixels from ${num(can.ports)} ports; ${count > 1 ? 'these screens have' : 'this screen has'} ${num(pixels * count)}`
+  if (d.each) {
+    const some = d.each === 1 ? 'one of these screens' : `${num(d.each)} of these screens`
+    if (d.by === 'ports') return `One has ${num(can.ports)} ports, which is ${some} at ${plural(dataLines(pixels), 'data line')} each`
+    if (d.by === 'room') return `One drives a picture up to ${num(can.widest!)} × ${num(can.tallest!)} pixels, which has room for ${some} at ${num(s.pixelsW)} × ${num(s.pixelsH)}`
+    return `One drives ${millions(can.pixels)} pixels, which is ${some} at ${num(pixels)} each`
+  }
+  const screen = count > 1 ? 'each of these screens' : 'this screen'
+  const limit =
+    d.by === 'width'
+      ? `One drives a picture ${num(can.widest!)} pixels wide at most and ${screen} is ${num(s.pixelsW)}`
+      : d.by === 'height'
+        ? `One drives a picture ${num(can.tallest!)} pixels tall at most and ${screen} is ${num(s.pixelsH)}`
+        : d.by === 'ports'
+          ? `One has ${num(can.ports)} ports and ${screen} takes ${num(dataLines(pixels))} data lines`
+          : `One drives ${millions(can.pixels)} pixels and ${screen} has ${num(pixels)}`
+  const parts = d.across * d.down
+  const laid = d.across > 1 && d.down > 1 ? `, ${num(d.across)} across and ${num(d.down)} down` : d.across > 1 ? ' side by side' : `, one above ${parts === 2 ? 'the other' : 'another'}`
+  return `${limit}: ${num(parts)}${laid}${count > 1 ? ' for every screen' : ''}, each driving part of it`
 }
 
 /** A run of lengths as products and how many of each, `times` over. */
