@@ -275,8 +275,11 @@ test("on a laptop, a freelancer's link takes the item's photos with the webcam, 
       g.fillStyle = '#d8d8d8'
       g.fillRect(500, 200, 280, 320)
     }
-    setInterval(draw, 50)
-    draw()
+    // A camera gives no picture for a moment after it's allowed: nothing is drawn until the test says the picture is on.
+    ;(window as unknown as { cameraPicture: () => void }).cameraPicture = () => {
+      setInterval(draw, 50)
+      draw()
+    }
     Object.defineProperty(navigator, 'mediaDevices', {
       value: {
         getUserMedia: async () => canvas.captureStream(20),
@@ -289,7 +292,12 @@ test("on a laptop, a freelancer's link takes the item's photos with the webcam, 
   await expect(laptop.locator('#pick')).not.toHaveAttribute('capture')
   await laptop.getByRole('button', { name: 'Use the webcam' }).click()
   const cam = laptop.getByRole('group', { name: 'Webcam' })
+  // Until the camera's picture is on, Take photo is off and the page says what it waits for: a press then took nothing.
+  await expect(laptop.locator('#photo-status')).toHaveText('Turning the camera on…')
+  await expect(cam.getByRole('button', { name: 'Take photo' })).toBeDisabled()
+  await laptop.evaluate(() => (window as unknown as { cameraPicture: () => void }).cameraPicture())
   await expect(laptop.locator('#photo-status')).toContainText('Hold the item up to the camera')
+  await expect(cam.getByRole('button', { name: 'Take photo' })).toBeFocused()
   await cam.getByRole('button', { name: 'Take photo' }).click()
   await cam.getByRole('button', { name: 'Take photo' }).click()
   const taken = laptop.getByRole('list', { name: 'Photos of this item' })

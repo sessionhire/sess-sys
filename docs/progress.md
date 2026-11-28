@@ -3,6 +3,27 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 28 November 2026: the webcam's Take photo waits for the picture
+
+**Done (1.245.2, #469)**
+
+- Found while the sideways-scroll fix (#468) was in its checks: one browser
+  test failed once, "a freelancer's link takes the item's photos with the
+  webcam", with one photo taken where two were pressed.
+- The cause was in the page, not the test. On the page a freelancer opens
+  from their link, Take photo came on as soon as the camera was allowed, a
+  moment before the camera's picture arrived, and a press in that moment was
+  dropped without a word. The test pressed twice at once and sometimes landed
+  in it; a person quick on the button would too.
+- Take photo now stays off until the first picture is in, and the line under
+  it says "Turning the camera on…" until then, which is what the app's own
+  webcam (Stock › Add) already did. The keys go to Take photo when it comes
+  on.
+- The test now holds its made-up camera's picture back, checks the button is
+  off and the words are there, then lets the picture through. It fails
+  without the fix, and passed six runs in a row with it.
+- Why it matters beyond the test: a failed check on main holds a deploy back.
+
 ## 28 November 2026: the LED screen builder no longer slides sideways
 
 **Done (1.245.1, #468)**

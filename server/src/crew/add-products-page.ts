@@ -111,9 +111,12 @@ export const ADD_PHOTOS_SCRIPT = `
           li.appendChild(x)
           shots.appendChild(li)
         })
-        take.disabled = taken.length >= ${MOST_PRODUCT_PHOTOS}
+        // Off until the camera's picture is on, as the app's own webcam is: a press before it had nothing to take.
+        var waiting = !!stream && !video.videoWidth
+        take.disabled = waiting || taken.length >= ${MOST_PRODUCT_PHOTOS}
         if (stream || taken.length)
-          said.textContent = !taken.length ? "Hold the item up to the camera and take a photo, then one of its maker's label if it has one."
+          said.textContent = waiting && !taken.length ? 'Turning the camera on…'
+            : !taken.length ? "Hold the item up to the camera and take a photo, then one of its maker's label if it has one."
             : taken.length >= ${MOST_PRODUCT_PHOTOS} ? 'Three photos is the most for one item: ' + button.textContent.toLowerCase() + '.'
             : (taken.length === 1 ? 'One photo' : 'Two photos') + ' of this item. Take its label too, or ' + button.textContent.toLowerCase() + '.'
       }
@@ -133,13 +136,18 @@ export const ADD_PHOTOS_SCRIPT = `
           cam.hidden = false
           document.getElementById('cam-pick').hidden = true
           show()
-          take.focus()
         }).catch(function (err) {
           var name = err && err.name
           said.textContent = name === 'NotAllowedError' ? 'The camera is blocked for this site. Allow it from the camera icon in the address bar, or upload photos instead.'
             : name === 'NotReadableError' ? 'Another app is using the camera (a video call, perhaps). Close it and try again, or upload photos.'
             : "The camera didn't start. Try again, or upload photos instead."
         })
+      })
+      // The first picture is in: Take photo comes on, and takes the keys.
+      video.addEventListener('loadeddata', function () {
+        if (!stream) return
+        show()
+        take.focus()
       })
       take.addEventListener('click', function () {
         if (!stream || !video.videoWidth || taken.length >= ${MOST_PRODUCT_PHOTOS}) return
