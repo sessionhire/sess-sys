@@ -6,6 +6,7 @@ hold mx30s and mx40 and uhd juniors too", then "We also hold CVT 10 Pros in
 stock if that affects things", then "The mx30 should be in the stock list".
 Then, on the MX40: "you can connect 4 cvt10 pros to effectively make it a 40
 port processor", and "https://coex.wiki/ has great up to date documentation".
+And in the afternoon: "The absen has A5 receiving cards, the gloshine has A4."
 All of it is worked in below.
 
 What each processor we hold or are likely to hire can drive, from its maker's
@@ -38,6 +39,9 @@ units wrong. The limits and the names were put right in 1.245.3. Since 1.246.0
 the data lines are counted as they are cabled, and the builder adds what takes
 them to the screen: a data cable for every line, or the CVT Pros and fibre
 ([ADR 0208](../adr/0208-a-screens-data-lines-and-what-takes-them-to-it.md)).
+Since 1.247.0 one tick puts a backup on every line, with the second port and
+the second cable each one takes
+([ADR 0209](../adr/0209-a-backup-on-every-data-line.md)).
 
 NovaStar's own wiki for the MX range is newer than the sheets this research
 first read, and it changed five things here: the MX40 Pro drives 9 million
@@ -117,6 +121,18 @@ VX4S's own sheet doesn't mention it, so that needs a check on the unit. The
 MX40 Pro is the one that keeps all its lines: in its 40-port mode, ports 21 to
 40, which leave by fibre, back up ports 1 to 20.
 
+**How the builder counts a backup (1.247.0).** One tick in the kit list,
+"Backup on every data line", off to begin with and kept as it was left. Ticked,
+every line takes two ports, so a processor carries half as many lines, and the
+smallest of ours that still drives the screen is sent: the four lines of an 8
+by 3.5 metre screen go from one VX4S to an MX30. It adds as many long cables
+again. By fibre it adds as many short cables again, with converters and fibre
+of their own, so that losing one converter or one fibre leaves every line fed.
+An MX40 Pro is counted with 40 ports where the lines go by fibre, which is 20
+lines and their backups, and with its 20 sockets by cable, which is ten. A
+VX4S's line asks for the check above. Unticked, the tick's line says what it
+would add, and the processor it would take where that changes.
+
 **The make has to match the panel, and so has the range.** A processor only
 talks to its own maker's receiving card inside the panel. Every processor we
 hold is NovaStar, so the panels they drive must have NovaStar cards, and a
@@ -124,6 +140,13 @@ hired Brompton or Colorlight would not drive them. Within NovaStar there are
 two ranges. The MX30 and MX40 Pro only drive its A series cards (A5s Plus,
 A7s Plus, A8s, A8s-N, A8s Pro, A10s Plus-N, A10s Pro), not the older MRV or DH
 cards. The VX4S, the NovaPro HD and the UHD Jr drive every NovaStar card.
+
+**Our two panels (Colly, 28 November): the Absen has A5 cards, the Gloshine
+A4.** The A4s isn't a card an MX drives, so a Gloshine screen goes on a VX4S,
+a NovaPro HD or a UHD Jr. The Absen goes on an MX only if its card is the A5s
+Plus and not the plain A5s, which the card's label or NovaLCT says. The
+builder doesn't hold a panel's card yet, so it still offers an MX for both:
+step 3 puts that right, and is built next.
 
 **All-in-one or sending only.** The VX, NovaPro and MX units scale any source
 to fit the screen. The MCTRL units send the picture pixel for pixel, so their
@@ -365,9 +388,9 @@ controllers", the wiki says of the MCTRL, H and VX series. Our VX4S, NovaPro
 HD and UHD Jr are of that family.
 
 So the builder has to know which card each panel has, and offer an MX only
-where it can drive the panel. Until the office says, every processor is
-offered for every panel, as before. That is step 3, and it is no longer only
-about hired kit.
+where it can drive the panel. The office has said which (A5 in the Absen, A4
+in the Gloshine), and until step 3 is built every processor is still offered
+for every panel. Step 3 is no longer only about hired kit.
 
 The card sets the extras too. 10-bit colour at three quarters of a line,
 rather than half, takes an A10s Pro or A8s Pro. The work for cameras (frame
@@ -382,7 +405,7 @@ only. And a backup between ports, set in one press (it calls the two patterns
 Split and Sequential) or port by port by hand. With a backup between ports
 the line runs through its panels and back to the backup port, so each line
 takes a second long cable, or a place on a second fibre converter. That is
-what step 4 counts.
+what step 4 counts, built in 1.247.0.
 
 ### Past an MX40 Pro
 
@@ -587,7 +610,8 @@ as the others: its name says NovaStar.
   would put six columns on one of them, 688,128 pixels, over the 650,000 a
   line carries. That seldom changes how many processors are asked for, but it
   sets the long cables, and the ports once every line has a backup.
-- **It has no backup lines.** Every line is counted once.
+- **It had no backup lines (put right in 1.247.0).** Every line was counted
+  once.
 - **It assumes 60 Hz in 8-bit colour.** That is the right default. A 10-bit or
   120 Hz show carries half as much on a line or less.
 - **It doesn't match the processor's make to the panel.** A Brompton or
@@ -613,21 +637,22 @@ as the others: its name says NovaStar.
 | 1 | Every limit checked | The processor line says which limit a screen breaks, in words. The three wrong readings are corrected | None | Small |
 | 2 | Data lines as they are cabled, and what takes them to the screen. Built in 1.246.0 | "4 data lines" in the screen's facts, and how they lie beside the cables: "A line takes 4 columns of panels." A long data cable for every line, picked from the lengths in the stock list, or one tick, "Fibre to the screen", which swaps them for CVT Pros, the fibre reel and a short cable for every line. It also settles MX30 or MX40 where a screen fits one by pixels and not by ports: an MX line is counted at its own 659,722 pixels and no panel thinner than 128, and where an MX30 has the ports only if lines run on from one column into the next, the line says so. With the tick on, an MX40 Pro is counted with all 40 ports | None | Medium |
 | 3 | Processors matched to the panel's receiving card | A panel says which card it has. An MX30 or MX40 Pro is offered only for NovaStar's A series cards, and the wrong make is never offered. About 35 processors known by name; one the list doesn't know asks once for its pixels and ports, as a panel does | Once for each panel and each unknown processor | Medium |
-| 4 | Backup lines | One tick, "Backup on every data line". Lines and long cables double. On an MX40 Pro the backups ride its 40-port mode, by fibre through CVT Pros, so it keeps all 20 lines. On any other the ports double too, and a second processor is asked for when they run out | One tick, off unless Admin sets it on | Small |
+| 4 | Backup lines. Built in 1.247.0 | One tick, "Backup on every data line", which says what it would add before it is pressed. Every line takes a second port and a second cable: as many long cables again, or by fibre as many short ones with converters and fibre of their own. An MX40 Pro keeps all 20 lines by fibre, in its 40-port mode. On any other the ports halve, and a bigger processor or a second one is sent when they run out. The quote says "a backup on every data line" under the screen's line | One tick, off the first time and kept as it was left | Small |
 | 5 | The right one of ours, and what to hire past them | The smallest of ours that drives the screen whole is offered first, which is built with step 1. A note when a VX4S or NovaPro HD would stretch a picture wider than HD, naming the one of ours that shows it pixel for pixel. Past our biggest, a hired unit added as a line to price | None on the quote. The office lists what it hires | Small |
 | 6 | A wiring plan for the crew | A drawing on the show pack: the screen from behind, each data line numbered with its port, each power circuit with its way on the distro | None | Large |
 | 7 | Frame rate and colour depth | Two choices under "More": 50, 60 or 120 Hz, and 8, 10 or 12-bit. They change what a line carries, and on an MX40 Pro what the unit loads. The wiki gives every figure | Two, hidden unless opened | Small |
 
-**Steps 1 and 2 are built (1.245.3 and 1.246.0), and Colly chose the rest on
-28 November: "All of it, hired kit included", which is steps 2 to 6.** They
-are built in this order, each on its own. Step 2 came first, the data lines
-with the data cables or the CVT Pros and fibre: the stock list holds
-everything it adds (data cables at 20, 30 and 50 metres and a 100 metre reel,
-the CVT Pros, a 100 metre single-mode fibre reel and its patch leads), and on
-our biggest screens it decides between the MX30 and the MX40. Next is 4, the
-backup lines, which lean on 2. Then 3 and 5 together: the processors matched
-to each panel's card, and what to hire past ours. Then 6, the crew's wiring
-plan, which draws what the others count.
+**Steps 1, 2 and 4 are built (1.245.3, 1.246.0 and 1.247.0), and Colly chose
+the rest on 28 November: "All of it, hired kit included", which is steps 2 to
+6.** They are built in this order, each on its own. Step 2 came first, the
+data lines with the data cables or the CVT Pros and fibre: the stock list
+holds everything it adds (data cables at 20, 30 and 50 metres and a 100 metre
+reel, the CVT Pros, a 100 metre single-mode fibre reel and its patch leads),
+and on our biggest screens it decides between the MX30 and the MX40. Then 4,
+the backup lines, which lean on 2. Next is 3, the processors matched to each
+panel's card, now that the office has said which cards our panels have. Then
+5, what to hire past ours, and 6, the crew's wiring plan, which draws what
+the others count.
 
 What step 2 leaves for later, each said on the sheet where it bears on a
 screen: an MX40 Pro with some lines on its own sockets and the rest by fibre
@@ -636,9 +661,17 @@ share a converter (the sheet asks for a look); and the patch lead between a
 VX4S and the converter beside it, which is counted as one more of the short
 cables.
 
+What step 4 leaves for later: an MX40 Pro with its lines on its own sockets
+and only the backups by fibre (today it is ten lines and their backups by
+cable, or every line and every backup by fibre); a whole second processor
+standing by, which is added as kit; the CVT10 Pro's own second fibre, which
+isn't counted; and a setting in Admin that starts the tick on for everybody,
+which waits on whether backups are the house standard.
+
 Step 3 has more to it since the wiki was read. It was for hired kit, and now
-it bears on our own: an MX drives only A series cards. If either of our panels
-has another card, it is built ahead of the rest.
+it bears on our own: an MX drives only A series cards, and the Gloshine's A4s
+isn't one. So it is built next, ahead of 5 and 6: each panel's card is kept
+on its product, and only the processors that drive it are offered.
 
 Step 7 was not in what Colly chose. It is proposed after 6, now that the wiki
 gives its sums. Until then, counting at 60 Hz in 8-bit colour is the safe
@@ -666,12 +699,12 @@ pixel for pixel gets one of those, however few panels there are.
 | Question | Why it matters | Assumed until answered |
 | --- | --- | --- |
 | How many pixels across and down is the 4.8 mm panel? | Every panel count is worked from them. The 3.9 mm panel's 128 × 128 is on its product now | 104 × 208 |
-| Which receiving card is in each panel, by its model (A8s, A5s Plus, MRV…)? | A processor only drives its own make, and an MX30 or MX40 Pro only NovaStar's A series | NovaStar's A series in both, so every processor we hold is offered for both |
+| Which receiving card is in each panel, by its model (A8s, A5s Plus, MRV…)? Answered 28 November: A5 in the Absen, A4 in the Gloshine. Still to check: whether the Absen's is the A5s or the A5s Plus | A processor only drives its own make, and an MX30 or MX40 Pro only NovaStar's A series. The A4s and the plain A5s aren't among them | Until step 3 is built, every processor we hold is offered for both |
 | Are the MX40s on VMP and firmware 1.4.0 or later? | The 40-port mode needs both | Yes |
 | What is the widest and tallest screen the VX4S's menu allows? | Its own sheet doesn't say | 3,840 wide and 1,920 tall, as its sister units |
 | Do shows run at 50 or 60 Hz? | 50 Hz carries a fifth more on each line | 60 Hz, the safe side |
 | On an MX30 or MX40, does VMP count two columns of the 4.8 mm panel side by side on one line as one area, or as two narrower than 128 pixels? | One area loses nothing, 30 panels a line. Two are counted wider, 24 a line | Two, the safe side: 24 a line |
-| Is a backup on every data line the house standard? | It doubles the ports and the long cables | No backup |
+| Is a backup on every data line the house standard? | It takes a second port and a second long cable for every line. If it is, the tick can start on for everybody | No backup the first time, then as it was left on each phone or computer |
 | Do the short data and power links travel in the panels' cases, or are they picked on their own? | Picked on their own, the builder can count them | They travel with the panels, so none is added |
 | Which processors are hired in, from whom, and at what price? | The builder can only suggest what the office can get | Nothing suggested |
 | How many MX30s, MX40s, UHD Jnrs and CVT Pros are there? | They are in the stock list with no count, and the builder counts what is free on the day | None, so each shows as none free |

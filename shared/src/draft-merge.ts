@@ -34,8 +34,9 @@ export function lineMark(l: QuoteLine): string {
     ...(l.under ? [l.under] : []),
     // The same, for a line given as included (audit of the quote flow, 8 November 2026, finding 1).
     ...(l.included ? ['included'] : []),
-    // And for an LED screen's answers (ADR 0207): a screen built again is a changed line.
-    ...(l.screen ? [l.screen.panel, l.screen.cols, l.screen.rows, l.screen.stands] : []),
+    // And for an LED screen's answers (ADR 0207): a screen built again is a changed line. Its backup (ADR 0209) only where
+    // it has one, so a screen marked before there were backups reads the same.
+    ...(l.screen ? [l.screen.panel, l.screen.cols, l.screen.rows, l.screen.stands, ...(l.screen.backup ? ['backup'] : [])] : []),
   ]
   return hash(JSON.stringify(fields))
 }

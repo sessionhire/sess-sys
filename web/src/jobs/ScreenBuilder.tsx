@@ -17,12 +17,14 @@ import { lineStands, screenChanges, screenComesTo, screenLines, type ScreenSet }
  *
  * It asks the least it can. The panels we hold are offered first and the one used last time is already chosen; a
  * panel's size is asked the first time it's used and kept on its product; nothing else has to be typed. Every part is
- * ticked to begin with, since kit left off a quote is the mistake that costs, and taking a part off is one tick. The one
- * part that starts unticked is fibre to the screen (ADR 0208): it isn't kit a screen is short without but another way to
- * carry its data lines, so it's on when it was used last time, and one tick swaps the long data cables for it.
+ * ticked to begin with, since kit left off a quote is the mistake that costs, and taking a part off is one tick. Two
+ * parts start unticked, each on when it was used last time. Fibre to the screen (ADR 0208) isn't kit a screen is short
+ * without but another way to carry its data lines, and one tick swaps the long data cables for it. A backup on every
+ * data line (ADR 0209) is a second way to every line: one tick adds as much again of what carries them, and counts a
+ * second port on the processor for each. Unticked, either says what ticking it would add.
  *
  * The sums are in the shared code (`@sh/shared/led-screen`), which only this file reads. It comes with the rest of the
- * app, not as a file fetched when first shown (lazyPart.tsx): it's small (about 22 KB as it travels), and so the sheet
+ * app, not as a file fetched when first shown (lazyPart.tsx): it's small (about 23 KB as it travels), and so the sheet
  * opens at once, with no signal too. The lines it makes are worked out by screenLines.ts as they're shown, so what the
  * foot says the screen comes to is what the quote says once it's there.
  */
@@ -63,13 +65,17 @@ export interface ScreenBuilderProps {
   onClose: () => void
 }
 
-/** What this device remembers of the last screen built: the panel, the products picked for each part, offered again where they do the job, and whether its data lines went by fibre. */
+/**
+ * What this device remembers of the last screen built: the panel, the products picked for each part, offered again where they
+ * do the job, whether its data lines went by fibre, and whether each had a backup.
+ */
 const USUAL_KEY = 'sh.screen.usual'
 interface Usual {
   panel?: string
   hung?: ScreenPicks
   ground?: ScreenPicks
   fibre?: boolean
+  backup?: boolean
 }
 function readUsual(): Usual {
   try {
@@ -125,8 +131,8 @@ function startOf(models: readonly ModelView[], was: ScreenSet | undefined, usual
     const ours = choices.filter((c) => c.ours)
     const last = usual.panel ? models.find((m) => m.id === usual.panel && !m.mistake) : undefined
     const panelId = last?.id ?? (ours.length === 1 ? ours[0]!.model.id : choices.length === 1 ? choices[0]!.model.id : '')
-    // Fibre to the screen is the one part that starts unticked, unless the last screen used it.
-    return { panelId, width: '', height: '', stands: '', count: String(count ?? 1), typed: {}, picks: {}, off: usual.fibre ? [] : ['fibre'] }
+    // Fibre to the screen and a backup on every line are the parts that start unticked, each unless the last screen had it.
+    return { panelId, width: '', height: '', stands: '', count: String(count ?? 1), typed: {}, picks: {}, off: [...(usual.fibre ? [] : (['fibre'] as const)), ...(usual.backup ? [] : (['backup'] as const))] }
   }
   const panel = models.find((m) => m.id === screen.panel)
   const made = Number(was.head.qty) || 1
@@ -145,6 +151,11 @@ function startOf(models: readonly ModelView[], was: ScreenSet | undefined, usual
   const pieces = new Map(trussFamilies(models).map((f) => [f.key, f.pieces.map((p) => p.model.id)]))
   for (const row of screenPlan({ panel, facts: panel.panel, cols: screen.cols, rows: screen.rows, count: made, stands: screen.stands }, models).rows) {
     if (row.part === 'panels') continue
+    // A backup is more of the kit the other parts have, so it's told by the answer kept on the screen's line.
+    if (row.part === 'backup') {
+      if (!screen.backup) start.off.push('backup')
+      continue
+    }
     // Truss is chosen by its kind, which is several products: the one any of whose lengths is on the quote.
     const productsOf = (choice: string) => (row.part === 'truss' ? (pieces.get(choice) ?? []) : [choice])
     const onQuote = row.choices.find((c) => productsOf(c.id).some((id) => had.has(id)))
@@ -206,12 +217,14 @@ export function ScreenBuilder({ view, days, free, room, was, count: asked, kept,
   const usualPicks = stands ? usual[stands] : undefined
   // Ticked, the data lines go by fibre: the plan counts the processor's ports and the cables by it.
   const fibre = !off.includes('fibre')
+  // Ticked, every data line has a backup: the plan counts two of the processor's ports for each.
+  const backup = !off.includes('backup')
   const plan = useMemo(() => {
     if (!panel || !read?.facts || !grid || !stands || screens === undefined) return undefined
     const as = { ...panel, panel: read.facts, weightKg: read.weightKg, powerW: read.powerW }
-    return screenPlan({ panel: as, facts: read.facts, cols: grid.cols, rows: grid.rows, count: screens, stands, fibre }, models, picks, { price: (x) => m.productPrice(x), free, ...(usualPicks ? { usual: usualPicks } : {}) })
+    return screenPlan({ panel: as, facts: read.facts, cols: grid.cols, rows: grid.rows, count: screens, stands, fibre, backup }, models, picks, { price: (x) => m.productPrice(x), free, ...(usualPicks ? { usual: usualPicks } : {}) })
     // What's read of the panel is made afresh each draw: the plan turns on its numbers.
-  }, [models, panel, read?.facts?.widthMm, read?.facts?.heightMm, read?.facts?.pixelsW, read?.facts?.pixelsH, read?.weightKg, read?.powerW, grid?.cols, grid?.rows, stands, screens, fibre, picks, m, free, usualPicks])
+  }, [models, panel, read?.facts?.widthMm, read?.facts?.heightMm, read?.facts?.pixelsW, read?.facts?.pixelsH, read?.weightKg, read?.powerW, grid?.cols, grid?.rows, stands, screens, fibre, backup, picks, m, free, usualPicks])
 
   // The kit the ticked parts come to, each product once, in the order it's listed.
   const built = useMemo(() => {
@@ -225,7 +238,9 @@ export function ScreenBuilder({ view, days, free, room, was, count: asked, kept,
         else items.push({ ...i })
       }
     }
-    return { screen: { panel: panel.id, cols: grid.cols, rows: grid.rows, stands }, count: screens, what: screenWhat(plan.facts, stands), includes: screenIncludes(plan.facts, screens), items }
+    // Kept on the screen's line, and said under it, where the backup is ticked and there's kit in the stock list to make it.
+    const backed = plan.rows.some((r) => r.part === 'backup' && r.items.length > 0 && !off.includes('backup'))
+    return { screen: { panel: panel.id, cols: grid.cols, rows: grid.rows, stands, ...(backed ? { backup: true as const } : {}) }, count: screens, what: screenWhat(plan.facts, stands), includes: screenIncludes(plan.facts, screens, backed), items }
   }, [plan, off, panel, stands, grid?.cols, grid?.rows, screens])
   const prices = { days, model: (x: string) => models.find((y) => y.id === x), price: (x: string) => m.productPrice(x), rate: (x: string) => m.productRate(x) }
   // As it would land, with stand-in ids: the real ones are made when it's added.
@@ -327,12 +342,13 @@ export function ScreenBuilder({ view, days, free, room, was, count: asked, kept,
       if ((panel.powerW || null) !== read.powerW) keep.powerW = read.powerW
     }
     const land = () => {
-      // The panel and each part's product are offered first next time, where they do the job, and fibre is ticked again where it
-      // was used. The data cable is remembered for the long run only: by fibre it's the short one at the screen.
+      // The panel and each part's product are offered first next time, where they do the job, and fibre and the backup are ticked
+      // again where they were used. The data cable is remembered for the long run only: by fibre it's the short one at the screen.
       const byFibre = fibre && plan.rows.some((r) => r.part === 'fibre')
       const chosen = plan.rows.flatMap((r) => (r.part !== 'panels' && r.chosen && !off.includes(r.part) && !(r.part === 'data' && byFibre) ? [[r.part, r.chosen]] : []))
       const longRun = byFibre && usual[stands]?.data ? [['data', usual[stands].data]] : []
-      keepUsual({ ...usual, panel: panel.id, ...(plan.rows.some((r) => r.part === 'fibre') ? { fibre } : {}), [stands]: Object.fromEntries([...longRun, ...chosen]) })
+      const asked = { ...(plan.rows.some((r) => r.part === 'fibre') ? { fibre } : {}), ...(plan.rows.some((r) => r.part === 'backup' && r.items.length > 0) ? { backup } : {}) }
+      keepUsual({ ...usual, panel: panel.id, ...asked, [stands]: Object.fromEntries([...longRun, ...chosen]) })
       onDone(screenLines(built, { ...prices, newId }, was))
     }
     if (!mayKeep || !Object.keys(keep).length) return land()
@@ -538,14 +554,18 @@ export function ScreenBuilder({ view, days, free, room, was, count: asked, kept,
               <p className="screen-caveat">A first pass to quote from, not a structural check: whoever rigs it checks what it hangs from or stands on.</p>
             </div>
             <ul className="screen-parts" aria-label="Kit to add to the quote">
-              {plan.rows.map((row) => {
+              {plan.rows.map((row, at) => {
                 const always = row.part === 'panels'
                 const none = row.items.length === 0
                 const on = !none && (always || !off.includes(row.part))
+                // Two parts can take the same product, as the data cables and their backups do: what's short is counted over all
+                // that's ticked, and said once, on the last part that takes it.
                 const short = on
                   ? row.items.flatMap((i) => {
                       const left = free(i.modelId)
-                      return left !== undefined && left < i.qty ? [`${left === 0 ? 'None' : `Only ${left.toLocaleString('en-IE')}`} of the ${i.qty.toLocaleString('en-IE')} free on the job’s days${row.items.length > 1 ? `: ${nameOf(i.modelId)}` : ''}.`] : []
+                      const wanted = built?.items.find((x) => x.modelId === i.modelId)?.qty ?? i.qty
+                      const later = plan.rows.slice(at + 1).some((r) => !off.includes(r.part) && r.items.some((x) => x.modelId === i.modelId))
+                      return !later && left !== undefined && left < wanted ? [`${left === 0 ? 'None' : `Only ${left.toLocaleString('en-IE')}`} of the ${wanted.toLocaleString('en-IE')} free on the job’s days${row.items.length > 1 ? `: ${nameOf(i.modelId)}` : ''}.`] : []
                     })
                   : []
                 const pick = !always && row.choices.length > 1

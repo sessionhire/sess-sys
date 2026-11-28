@@ -5,7 +5,7 @@ import { gridFor, lengthsFor, liftFromName, panelChoices, screenFacts, screenInc
 /**
  * The LED screen builder's sums (ADR 0207), against a stock list named the way a hire company's really is: lengths in
  * the names, a maker and a series for a panel, a typing slip in a motor control. Its data lines, the cables for them and
- * fibre to the screen are ADR 0208.
+ * fibre to the screen are ADR 0208, and a backup on every line is ADR 0209.
  */
 
 const product = (name: string, more: Partial<ScreenProduct> = {}): ScreenProduct => ({
@@ -160,7 +160,7 @@ describe('kit found by what it is called', () => {
 describe('a hung screen', () => {
   const plan = screenPlan(ask(10, 6, 'hung'), stock, {}, look)
   it('lists what it takes, each with why', () => {
-    expect(plan.rows.map((r) => r.part)).toEqual(['panels', 'bars', 'truss', 'motors', 'control', 'processor', 'data', 'distro'])
+    expect(plan.rows.map((r) => r.part)).toEqual(['panels', 'bars', 'truss', 'motors', 'control', 'processor', 'data', 'backup', 'distro'])
     expect(items(plan, 'panels')).toEqual([[absen.id, 60]])
     expect(items(plan, 'bars')).toEqual([[id('absen Fly Bar'), 10]])
     expect(row(plan, 'bars').why).toBe('One for each column of panels, to hang them from')
@@ -365,6 +365,7 @@ describe('a hung screen', () => {
       ['control', 'No motor control found in the stock list.', 0],
       ['processor', 'No LED processor found in the stock list.', 0],
       ['data', 'No data cable found in the stock list.', 0],
+      ['backup', 'No data cable found in the stock list to run a backup with.', 0],
       ['distro', 'No video power distro found in the stock list.', 0],
     ])
   })
@@ -373,7 +374,7 @@ describe('a hung screen', () => {
 describe('a ground-stacked screen', () => {
   const plan = screenPlan(ask(10, 6, 'ground'), stock, {}, look)
   it('stands against truss uprights on base plates, counted by the tipping point solver', () => {
-    expect(plan.rows.map((r) => r.part)).toEqual(['panels', 'bars', 'truss', 'plates', 'processor', 'data', 'distro'])
+    expect(plan.rows.map((r) => r.part)).toEqual(['panels', 'bars', 'truss', 'plates', 'processor', 'data', 'backup', 'distro'])
     // H30V comes first here: it's the truss the base plate is made for.
     expect(row(plan, 'truss').chosen).toBe('h30v')
     expect(items(plan, 'truss')).toEqual([[id('3M H30V Truss'), 3]])
@@ -454,8 +455,8 @@ describe("a screen's data lines, and what takes them to it", () => {
   /** The stock list without the converter, and with it and the fibre it runs on. */
   const held = [...rest, vx4s, proHd, mx30, mx40, uhd, reel, cat6, cat30, cat20, ...beside]
   const wired = [...held, cvt, fibre]
-  const planOf = (cols: number, rows: number, more: { count?: number; fibre?: boolean; list?: ScreenProduct[]; picks?: ScreenPicks; look?: PlanLookups; panel?: ScreenProduct } = {}) =>
-    screenPlan({ ...ask(cols, rows, 'hung', more.count ?? 1, more.panel ?? absen), ...(more.fibre ? { fibre: true } : {}) }, more.list ?? held, more.picks ?? {}, more.look ?? {})
+  const planOf = (cols: number, rows: number, more: { count?: number; fibre?: boolean; backup?: boolean; list?: ScreenProduct[]; picks?: ScreenPicks; look?: PlanLookups; panel?: ScreenProduct } = {}) =>
+    screenPlan({ ...ask(cols, rows, 'hung', more.count ?? 1, more.panel ?? absen), ...(more.fibre ? { fibre: true } : {}), ...(more.backup ? { backup: true } : {}) }, more.list ?? held, more.picks ?? {}, more.look ?? {})
   const data = (plan: ReturnType<typeof screenPlan>) => [plan.lines, items(plan, 'data'), row(plan, 'data').why]
 
   it('counts them as a screen is cabled: whole columns, as many to a line as it carries', () => {
@@ -557,10 +558,10 @@ describe("a screen's data lines, and what takes them to it", () => {
   })
   it('offers fibre to the screen only where the stock list holds a converter, as a part that says what it would add', () => {
     // No converter: no such part, and asking for it changes nothing.
-    expect(planOf(16, 7, { fibre: true }).rows.map((r) => r.part)).toEqual(['panels', 'bars', 'truss', 'motors', 'control', 'processor', 'data', 'distro'])
+    expect(planOf(16, 7, { fibre: true }).rows.map((r) => r.part)).toEqual(['panels', 'bars', 'truss', 'motors', 'control', 'processor', 'data', 'backup', 'distro'])
     expect(data(planOf(16, 7, { fibre: true }))).toEqual(data(planOf(16, 7)))
     const plain = planOf(16, 7, { list: wired })
-    expect(plain.rows.map((r) => r.part)).toEqual(['panels', 'bars', 'truss', 'motors', 'control', 'processor', 'data', 'fibre', 'distro'])
+    expect(plain.rows.map((r) => r.part)).toEqual(['panels', 'bars', 'truss', 'motors', 'control', 'processor', 'data', 'fibre', 'backup', 'distro'])
     // Not asked for, it carries what it would add, and the cables are still the long ones.
     expect(items(plain, 'fibre')).toEqual([[cvt.id, 2], [fibre.id, 1]])
     expect(row(plain, 'fibre').why).toBe('In place of a long data cable for every line: a converter at each end for every 10 data lines, and a fibre between each pair.')
@@ -646,6 +647,128 @@ describe("a screen's data lines, and what takes them to it", () => {
     // The converter is known by its number as well: one called a CVT10 Pro, or a fibre converter.
     for (const name of ['Novastar CVT10 Pro', 'NovaStar CVT10 Pro-S', 'Fibre converter 10 port']) expect(row(planOf(16, 7, { list: [...held, product(name, video), fibre] }), 'fibre').choices.map((c) => c.name)).toEqual([name])
   })
+
+  // A backup on every data line (ADR 0209): the line runs through its panels and back into a second port.
+  describe('with a backup on every line', () => {
+    const backup = (plan: ReturnType<typeof screenPlan>) => [items(plan, 'backup'), row(plan, 'backup').why]
+    const second = 'from its last panel back to a second port on the processor, which takes over if the first feed fails'
+
+    it('is a part that says what it would add, and counts nothing until it is asked for', () => {
+      // An 8 by 3.5 metre screen is four lines: a VX4S drives it from its four ports, and with a backup on each it couldn't.
+      const off = planOf(16, 7, { list: wired })
+      expect(items(off, 'processor')).toEqual([[vx4s.id, 1]])
+      expect(off.rows.map((r) => r.part).slice(-4)).toEqual(['data', 'fibre', 'backup', 'distro'])
+      expect(backup(off)).toEqual([[[reel.id, 4]], `A second data cable for each of the 4 data lines, ${second}. With it the processor is 1 × Novastar MX30: each line takes two of its ports.`])
+      expect([row(off, 'backup').label, row(off, 'backup').choices, row(off, 'backup').chosen]).toEqual(['Backup on every data line', [], null])
+      expect(off.working.join(' ')).not.toMatch(/backup/i)
+      // A screen of two lines stays on its VX4S either way, so nothing is said of the processor.
+      expect(backup(planOf(8, 5))).toEqual([[[reel.id, 2]], `A second data cable for each of the 2 data lines, ${second}.`])
+    })
+    it('takes a second port for every line, and as many cables again', () => {
+      const on = planOf(16, 7, { backup: true })
+      expect(items(on, 'processor')).toEqual([[mx30.id, 1]])
+      expect(row(on, 'processor').why).toBe('Drives 6.5 million pixels from 10 ports; this screen has 1,835,008 in 4 data lines, each with a backup: 8 ports')
+      expect(row(on, 'processor').check).toBeUndefined()
+      expect(data(on)).toEqual([4, [[reel.id, 4]], 'One for each of the 4 data lines, from the processor to the screen. A line takes 4 columns of panels.'])
+      expect(backup(on)).toEqual([[[reel.id, 4]], `A second data cable for each of the 4 data lines, ${second}.`])
+      expect(on.working).toContain('A backup is a second port for every data line: the line runs through its panels and back into it, so a processor carries half as many lines.')
+      // One line, and several screens.
+      const one = planOf(2, 2, { backup: true })
+      expect(row(one, 'processor').why).toBe('Drives 2.3 million pixels from 4 ports; this screen has 65,536 in 1 data line, with a backup: 2 ports')
+      expect(backup(one)).toEqual([[[reel.id, 1]], `A second data cable for the data line, ${second}.`])
+      const three = planOf(8, 5, { count: 3, backup: true })
+      expect(row(three, 'processor').why).toBe('Drives 6.5 million pixels from 10 ports; these screens have 1,966,080 in 3 data lines, each with a backup: 6 ports')
+      expect(backup(three)).toEqual([[[reel.id, 3]], `A second data cable for each of the 3 data lines of the 3 screens, ${second}.`])
+    })
+    it('asks for more of a processor where its ports run out, and to check one whose sheet says nothing of backups', () => {
+      // A VX4S's four ports are two lines with a backup each: the screen's four are shared between two of it.
+      const two = planOf(16, 7, { backup: true, picks: { processor: vx4s.id } })
+      expect([items(two, 'processor'), row(two, 'processor').why]).toEqual([[[vx4s.id, 2]], 'One has 4 ports and this screen takes 4 data lines, each with a backup: 2 side by side, each driving part of it'])
+      expect(row(two, 'processor').check).toBe("Check it backs up one port with another: its maker's sheet doesn't say.")
+      expect([items(two, 'data'), items(two, 'backup')]).toEqual([[[reel.id, 4]], [[reel.id, 4]]])
+      // Six small screens are a line each: an MX30's ten ports are five of them.
+      const six = planOf(2, 2, { count: 6, backup: true, picks: { processor: mx30.id } })
+      expect([items(six, 'processor'), row(six, 'processor').why]).toEqual([[[mx30.id, 2]], 'One has 10 ports, which is 5 of these screens at 1 data line each, every line with a backup'])
+      // A processor we don't know is asked to be checked for its ports too.
+      const other = product('Linsn TS802 sending box', video)
+      const unknown = planOf(16, 7, { list: [...held.filter((m) => m.category !== 'LED Processor'), other], backup: true })
+      expect(row(unknown, 'processor').check).toBe("Check it drives 1,835,008 pixels, with a second port for every data line: what it loads isn't known here.")
+      expect(items(unknown, 'backup')).toEqual([[reel.id, 4]])
+    })
+    it("keeps all an MX40's lines by fibre, in its 40-port mode, and says so where they go by cable", () => {
+      // 16 by 6 metres is 11 lines in whole columns. By cable an MX40's 20 ports are ten lines with a backup each: a line has to carry on.
+      const cabled = planOf(32, 12, { list: wired, backup: true })
+      expect(items(cabled, 'processor')).toEqual([[mx40.id, 1]])
+      expect(row(cabled, 'processor').why).toBe('Drives 9 million pixels from 20 ports; this screen has 6,291,456 in 10 data lines, each with a backup: 20 ports')
+      expect(row(cabled, 'processor').check).toBe(
+        'Fits the 20 ports it has, with a backup on every line, only if a data line carries on from one column into part of the next: in whole columns this screen takes 11 lines. It has 20 more ports that only leave by fibre: with Fibre to the screen ticked, every line keeps to whole columns.'
+      )
+      // By fibre it has 40: every line in whole columns, the backups through converters and fibre of their own.
+      const by = planOf(32, 12, { list: wired, fibre: true, backup: true })
+      expect(row(by, 'processor').why).toBe('Drives 9 million pixels from 40 ports by fibre; this screen has 6,291,456 in 11 data lines, each with a backup: 22 ports')
+      expect(row(by, 'processor').check).toBe('More than 10 lines with a backup on each takes its 40-port mode, which wants VMP and its firmware at 1.4.0 or later.')
+      expect(items(by, 'fibre')).toEqual([[cvt.id, 2], [fibre.id, 2]])
+      expect(backup(by)).toEqual([
+        [[cat30.id, 11], [cvt.id, 2], [fibre.id, 2]],
+        'A second way to each of the 11 data lines, which takes over if the first fails: from its last panel back to a second port on the processor, through converters and fibre of its own.',
+      ])
+      expect(by.working).toContain(
+        'A backup is a second port for every data line: the line runs through its panels and back into it, so a processor carries half as many lines. The backups go through converters and fibre of their own, so that losing one converter or one fibre leaves every line fed.'
+      )
+      // Within ten lines nothing is said of the mode.
+      expect(row(planOf(16, 7, { list: wired, fibre: true, backup: true, picks: { processor: mx40.id } }), 'processor').check).toBeUndefined()
+      // A screen 12.5 by 10.5 metres is two of it by cable and one by fibre.
+      const tall = planOf(25, 21, { list: wired, backup: true })
+      expect([items(tall, 'processor'), row(tall, 'processor').check]).toEqual([[[mx40.id, 2]], 'It has 20 more ports that only leave by fibre: with Fibre to the screen ticked, one drives this screen.'])
+      expect(items(planOf(25, 21, { list: wired, fibre: true, backup: true }), 'processor')).toEqual([[mx40.id, 1]])
+    })
+    it('by fibre takes converters and fibre of its own, a pair where the processor has no fibre output', () => {
+      const by = planOf(8, 5, { list: wired, fibre: true, backup: true })
+      expect(items(by, 'processor')).toEqual([[vx4s.id, 1]])
+      expect(data(by)).toEqual([2, [[cat20.id, 4]], 'Two for each of the 2 data lines: from the processor to its converter, and from the converter at the screen to the first panel. A line takes 4 columns of panels.'])
+      expect(items(by, 'fibre')).toEqual([[cvt.id, 2], [fibre.id, 1]])
+      expect(backup(by)).toEqual([
+        [[cat20.id, 4], [cvt.id, 2], [fibre.id, 1]],
+        'A second way to each of the 2 data lines, which takes over if the first fails: from its last panel back to a second port on the processor, through converters at each end and fibre of its own.',
+      ])
+      // A UHD Jr sends eight lines down a fibre: four lines and their backups are a converter each.
+      const jr = planOf(16, 7, { list: wired, fibre: true, backup: true, picks: { processor: uhd.id } })
+      expect([items(jr, 'fibre'), items(jr, 'backup')]).toEqual([
+        [[cvt.id, 1], [fibre.id, 1]],
+        [[cat20.id, 4], [cvt.id, 1], [fibre.id, 1]],
+      ])
+      // Off, it says what it would add by fibre, and what would then drive the screen.
+      expect(backup(planOf(16, 7, { list: wired, fibre: true }))).toEqual([
+        [[cat20.id, 4], [cvt.id, 1], [fibre.id, 1]],
+        'A second way to each of the 4 data lines, which takes over if the first fails: from its last panel back to a second port on the processor, through converters and fibre of its own. With it the processor is 1 × Novastar MX30: each line takes two of its ports.',
+      ])
+    })
+    it('wants enough of a cable, and of the fibre, for the lines and their backups together', () => {
+      // Five reels free: enough for four lines, not for four and their backups, so both go on the longest there are enough of.
+      const free = (m: string) => ({ [reel.id]: 5, [cat6.id]: 0 })[m]
+      expect(items(planOf(16, 7, { look: { free } }), 'data')).toEqual([[reel.id, 4]])
+      const on = planOf(16, 7, { backup: true, look: { free } })
+      expect([items(on, 'data'), items(on, 'backup')]).toEqual([[[cat30.id, 4]], [[cat30.id, 4]]])
+      // One drum of the longer fibre: it carries the lines alone, and gives way to the reel where the backups want a second.
+      const drum = product('Opticalcon Duo drum 150m', video)
+      const one = (m: string) => ({ [drum.id]: 1 })[m]
+      expect(items(planOf(32, 4, { list: [...wired, drum], fibre: true, look: { free: one } }), 'fibre')).toEqual([[cvt.id, 1], [drum.id, 1]])
+      const both = planOf(32, 4, { list: [...wired, drum], fibre: true, backup: true, look: { free: one } })
+      expect([items(both, 'fibre'), items(both, 'backup')]).toEqual([
+        [[cvt.id, 1], [fibre.id, 1]],
+        [[cat20.id, 4], [cvt.id, 1], [fibre.id, 1]],
+      ])
+    })
+    it('cannot be asked for where there is no data cable to run it with, and is one a screen where the pixels are not given', () => {
+      const none = planOf(16, 7, { list: held.filter((m) => !/\bcat ?[56]/i.test(m.name)), backup: true })
+      expect([row(none, 'backup').none, items(none, 'backup')]).toEqual(['No data cable found in the stock list to run a backup with.', []])
+      // Nothing to run it with, so the processor's ports aren't counted twice.
+      expect(items(none, 'processor')).toEqual([[vx4s.id, 1]])
+      expect(none.working.join(' ')).not.toMatch(/backup/i)
+      const blank = screenPlan({ ...ask(8, 5, 'hung', 2), facts: { ...HALF, pixelsW: null, pixelsH: null }, backup: true }, held)
+      expect(backup(blank)).toEqual([[[reel.id, 2]], `A second data cable for each screen, ${second}.`])
+    })
+  })
 })
 
 describe('an LED screen on a quote', () => {
@@ -664,6 +787,16 @@ describe('an LED screen on a quote', () => {
     // A line that isn't a screen reads as it did before screens, so a draft open on another device isn't taken for changed.
     expect(lineMark(line({ id: 'a', what: 'Desk' }))).toBe(lineMark({ ...line({ id: 'b', what: 'Desk' }), screen: undefined }))
     expect(quoteLine.safeParse({ ...lines[0], screen: { ...screen, cols: 0 } }).success).toBe(false)
+  })
+  it('keeps that its data lines have a backup, and says so under its line', () => {
+    const backed = { ...lines[0]!, screen: { ...screen, backup: true } }
+    expect(quoteLine.parse(backed).screen).toEqual({ ...screen, backup: true })
+    expect(lineMark(backed)).not.toBe(lineMark(lines[0]!))
+    // One without reads as it did before there were backups, said as not having one or not said at all.
+    expect(lineMark({ ...lines[0]!, screen: { ...screen, backup: false } })).toBe(lineMark(lines[0]!))
+    expect(screenIncludes(screenFacts(HALF, null, null, 10, 6), 1)).toBe('10 panels wide by 6 high · 1,280 × 768 pixels')
+    expect(screenIncludes(screenFacts(HALF, null, null, 10, 6), 1, true)).toBe('10 panels wide by 6 high · 1,280 × 768 pixels · a backup on every data line')
+    expect(screenIncludes(screenFacts({ ...HALF, pixelsW: null, pixelsH: null }, null, null, 10, 6), 2, true)).toBe('Each 10 panels wide by 6 high · a backup on every data line')
   })
 })
 
