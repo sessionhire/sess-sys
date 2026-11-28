@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.246.0',
+    date: '2026-11-28',
+    title: 'An LED screen’s data lines are counted as they are cabled, with the cables or the fibre that take them to it',
+    what: 'The LED screen builder counted a screen’s data lines by its pixels alone. It now counts them the way a screen is cabled: each line through whole panels, in whole columns where it can. An 8 by 3.5 metre screen of the 3.9 mm panel is four lines, where it said three. The count is shown with the screen’s size, and it sets two new parts of the kit. Data cables: one long cable for every line, the longest in the stock list that there are enough of, with the choice of another length. Fibre to the screen: one tick, off to begin with, which swaps the long cables for CVT Pros, the fibre that runs to them and a short cable for every line. Once used it stays ticked for the next screen. An MX30, an MX40 or a UHD Jnr has fibre outputs of its own, so it takes a CVT Pro at the screen only; a VX4S or a NovaPro HD takes one at each end. With the tick on, an MX40 is counted with all 40 of its ports. Where an MX30 has enough ports only if a line carries on from one column into the next, the builder says so, and sends an MX40 first. On an MX30 or MX40 a panel narrower than 128 pixels takes more of a line than its own pixels, as NovaStar counts it, so the 4.8 mm panel is 24 to a line. The short links between panels are still not counted, and the sheet says so.',
+    prs: [473],
+    adrs: [208],
+  },
+  {
     version: '1.245.5',
     date: '2026-11-28',
     title: 'The MX30 and MX40 are held to NovaStar’s current figures',

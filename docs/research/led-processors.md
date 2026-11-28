@@ -31,10 +31,13 @@ processor: one at the screen takes up to ten data lines down a single fibre, in
 place of a long data cable for every line.
 
 A processor has four limits and the builder checked two of them. It missed the
-widest and tallest picture, and it counts data lines by pixels, not as they are
-cabled. It read the VX4S and the NovaPro HD right. It did not know the MX30 or
-the MX40 Pro, knew the UHD Jr only by its full name, and had three hired units
-wrong.
+widest and tallest picture, and it counted data lines by pixels, not as they
+are cabled. It read the VX4S and the NovaPro HD right. It did not know the MX30
+or the MX40 Pro, knew the UHD Jr only by its full name, and had three hired
+units wrong. The limits and the names were put right in 1.245.3. Since 1.246.0
+the data lines are counted as they are cabled, and the builder adds what takes
+them to the screen: a data cable for every line, or the CVT Pros and fibre
+([ADR 0208](../adr/0208-a-screens-data-lines-and-what-takes-them-to-it.md)).
 
 NovaStar's own wiki for the MX range is newer than the sheets this research
 first read, and it changed five things here: the MX40 Pro drives 9 million
@@ -77,7 +80,9 @@ halves a line on most panels.
 
 **In our panels.** The 3.9 mm half-metre panel is 128 × 128 pixels, so one line
 carries 40 panels from an MX30 or MX40 Pro and 39 from the older units. The
-4.8 mm metre panel at 104 × 208 gives 30 a line from either. Its pixel count is
+4.8 mm metre panel at 104 × 208 gives 30 a line from the older units and 24
+from an MX30 or MX40 Pro, which count a panel narrower than 128 pixels as 128
+wide ([what one line carries](#what-one-line-carries)). Its pixel count is
 worked from the pitch and needs confirming on the panel.
 
 **A line is a block of whole columns or rows.** On the older units each port's
@@ -90,6 +95,19 @@ What it asks instead is that each rectangular part of a line is at least 128
 pixels wide, or it is counted as if it were. Whole columns stay the way a
 screen is cabled, and counting them is the safe side: it never asks for fewer
 ports than the screen needs.
+
+**How the builder counts them (1.246.0).** Each line is a tidy block of whole
+panels. Whole columns come first, as many to a line as it carries, shared out
+evenly: an 8 by 3.5 metre screen of the 3.9 mm panel is 16 columns of seven,
+five columns fit a line, and it takes four lines of four. Where a column is
+more than one line carries, the columns are cut in two, then three and so on.
+Shorter blocks are also used where they save a processor: a screen 25 panels
+by 21 is 25 lines in whole columns, five more than an MX40 Pro's 20 ports, and
+18 in half columns three to a line, so one MX40 Pro drives it. On the MX range
+alone, where a unit's ports would still run out, a line may carry on from one
+column into part of the next, and the processor's line says so with what whole
+columns would take. The screen's facts give the count, "4 data lines", and the
+cables' line says how they lie: "A line takes 4 columns of panels."
 
 **A backup halves the ports.** A line runs through its panels and back into a
 second port, which takes over if the first feed fails. NovaStar lists backup
@@ -235,10 +253,15 @@ the truss at the screen.
 - **The fibre's ends wear.** NovaStar rates an optical module for 200
   plug-ins, and says to wipe the fibre's end with alcohol before each one.
   That belongs on the crew's wiring plan.
-- **What it changes in the builder is the cables.** Without it a screen takes
-  a long data cable for every line. With it a screen takes one CVT10 Pro for
-  every ten lines, one fibre to each, and a short data cable from it to every
-  line.
+- **What it changes in the builder is the cables (built in 1.246.0).**
+  Without it a screen takes a long data cable for every line: the longest in
+  the stock list that there are enough of, and none past 100 metres. With one
+  tick, "Fibre to the screen", it takes one CVT10 Pro at the screen for every
+  ten lines (every eight from a UHD Jr), one fibre to each, and a short data
+  cable from it to every line: the shortest that reaches the far corner of
+  the screen. A VX4S or NovaPro HD takes a converter at each end, and a short
+  cable at each end of every line. The tick starts off, and comes back as it
+  was left on the last screen built.
 
 ## The MX range in full: NovaStar's COEX wiki
 
@@ -315,10 +338,15 @@ pixels. 3D halves a line, to 325,000 pixels, and an MX40 Pro to 4.5 million.
   up three columns and on into part of a fourth.
 - **But no thinner than 128 pixels.** "The width of each rectangular load
   area within a single Ethernet port must be at least 128 pixels", and a
-  narrower one is counted as if it were 128 wide. Our 3.9 mm panel is 128
-  wide, so a single column of it loses nothing. A single column of the 4.8 mm
-  panel, 104 wide, is counted at 128: 24 panels a line, not 30. Two of its
-  columns side by side on one line lose nothing.
+  narrower one is counted as if it were 128 wide: what is lost is "(128 −
+  width) × height", summed over "all rectangular load areas within the port".
+  Our 3.9 mm panel is 128 wide, so a single column of it loses nothing. A
+  single column of the 4.8 mm panel, 104 wide, is counted at 128: 24 panels a
+  line, not 30. The wiki doesn't say whether two such columns side by side on
+  one line make one area 208 wide, which would lose nothing, or two areas of
+  104. The builder takes each panel as its own, 24 a line however they lie,
+  which never asks for fewer lines than the screen needs. Laying a screen of
+  that panel out in VMP would settle it.
 - **Up the columns, for the shortest delay.** With Low Latency on, NovaStar
   asks that "all Ethernet ports load the cabinets vertically and share the
   same Y coordinate". Lines of whole columns that all start at the same
@@ -445,7 +473,7 @@ one arrives with a hired screen and never drives ours.
 | [S4](https://www.bromptontech.com/wp-content/uploads/2024/09/Brompton-S4-Data-Sheet-Sep2024-EN.pdf) | 2.1 million | 4 | 1080p at 60 Hz | 128, or 32 m² |
 | [S8](https://www.bromptontech.com/wp-content/uploads/2025/07/Brompton-S8-Data-Sheet-Mar2025-EN.pdf) | 4.5 million | 8 | 4K at 60 Hz | 274, or 68.5 m² |
 | [SX40](https://www.bromptontech.com/wp-content/uploads/2025/07/Brompton-SX40-Data-Sheet-Feb2025-EN.pdf) | 9 million | 4 fibre trunks, each to ten ports on an XD box | 4K at 60 Hz | 549, or 137 m² |
-| [SQ200](https://www.bromptontech.com/compare/) | 36 million | 2 fibre trunks to QD boxes | 8K | 2,197, or 549 m² |
+| [SQ200](https://www.bromptontech.com/wp-content/uploads/2025/10/Brompton-SQ200-Data-Sheet-Oct2025-EN.pdf) | 36 million, licensed in steps of 9, 18, 27 and 36 million | 2 fibre trunks at 100G, each to a QD-S box of twelve 10G links, and each of those to an XD box | 8K | 2,197, or 549 m² |
 
 A Brompton line carries less than a NovaStar one: 525,000 pixels at 60 Hz in
 8-bit colour, which is 32 of the 3.9 mm panels against 39 or 40. No line takes more
@@ -490,10 +518,21 @@ processor loads, so it takes two side by side, or one of the 8K class.
   and four XD boxes of ten ports on fibre. With a backup loop on every line
   the ports double, to six XD boxes or more. One SQ200 (36 million pixels,
   an 8K canvas) drives it whole.
+- **What one SQ200 takes to the screen.** Its two outputs are 100G and do
+  not plug into an XD: a
+  [QD-S](https://www.bromptontech.com/wp-content/uploads/2026/06/Brompton-QD-S-Data-Sheet-June2026-EN.pdf)
+  box sits between, 100G in and twelve 10G links out, and one is enough.
+  Each 10G link feeds one XD, which gives ten data lines (the newer
+  [XD-S](https://www.bromptontech.com/wp-content/uploads/2025/09/Brompton-XD-S-Data-Sheet-July2025-EN.pdf)
+  gives twelve). The 26 lines take three XD boxes; with a backup loop on
+  every line Brompton's calculator counts them in pairs, so six. The SQ200
+  is licensed by the pixels it sends, and this screen's 12.1 million needs
+  the 18 million licence or more.
 - **Colour depth and frame rate change the lines.** A Brompton line carries
   less in proportion as the colour depth goes up, and more as the frame rate
   comes down. At 60 Hz in 10-bit it carries 9 of these panels, so every
-  column splits into two lines. At 50 Hz in 10-bit it still carries ten.
+  column splits into two lines: 52 lines, and six XD boxes before any backup
+  loop. At 50 Hz in 10-bit it still carries ten.
 - **On Colorlight cards:** a line carries 655,360 pixels, 14 of these panels,
   so again one line a column. One unit of the 17 million pixel class (the
   Z8t, or the X26m with its 26 ports), or two 4K units side by side: ROE's
@@ -511,7 +550,9 @@ The V4ST's figures are from ROE's
 [brochure](https://www.roevisual.com/uploads/files/Product%20File/Vanish%20ST/vanish-st-brochure-nov-7_-2025.pdf)
 of November 2025. Brompton's are from its
 [capacity calculator](https://dl.bromptontech.com/tessera/docs/processor_capacity/?filter=all),
-which lists the V4ST, and its [XD data sheet](https://www.rentex.com/wp-content/uploads/2026/02/Brompton-XD-Data-Sheet-Apr2023.pdf).
+which lists the V4ST, and its [XD data sheet](https://www.rentex.com/wp-content/uploads/2026/02/Brompton-XD-Data-Sheet-Apr2023.pdf);
+the SQ200's outputs and licences, the QD-S and the XD-S are from their own
+data sheets, linked above.
 The eV4's are from ROE's
 [processor comparison](https://roevisual.com/uploads/files/Product%20File/roe-visual-processors-brochure-print-mar-30-2022.pdf).
 Colorlight's own site refused the request, so the Z8t and X26m are from
@@ -540,12 +581,12 @@ as the others: its name says NovaStar.
 - **It didn't check the widest or tallest picture.** A 16 by 2 metre screen of
   the 3.9 mm panel is 4,096 pixels wide. The builder passed it on one VX4S,
   which stops at 3,840.
-- **It counts lines by pixels, not as they are cabled.** An 8 by 3.5 metre
-  screen is 1.84 million pixels, which is three lines by pixels. Cabled in
-  whole columns or rows it takes four: three lines would put six columns on
-  one of them, 688,128 pixels, over the 650,000 a line carries. That seldom
-  changes how many processors are asked for, but it sets the long cables, and
-  the ports once every line has a backup.
+- **It counted lines by pixels, not as they are cabled (put right in
+  1.246.0).** An 8 by 3.5 metre screen is 1.84 million pixels, which is three
+  lines by pixels. Cabled in whole columns or rows it takes four: three lines
+  would put six columns on one of them, 688,128 pixels, over the 650,000 a
+  line carries. That seldom changes how many processors are asked for, but it
+  sets the long cables, and the ports once every line has a backup.
 - **It has no backup lines.** Every line is counted once.
 - **It assumes 60 Hz in 8-bit colour.** That is the right default. A 10-bit or
   120 Hz show carries half as much on a line or less.
@@ -570,23 +611,30 @@ as the others: its name says NovaStar.
 | | What it adds | What the person sees | New questions | Size |
 | --- | --- | --- | --- | --- |
 | 1 | Every limit checked | The processor line says which limit a screen breaks, in words. The three wrong readings are corrected | None | Small |
-| 2 | Data lines as they are cabled, and what takes them to the screen | "5 data lines of up to 3 columns" beside the processor. A long data cable for every line, picked from the lengths in the stock list, or one tick, "Fibre to the screen", which swaps them for CVT Pros and the fibre reel. It also settles MX30 or MX40 where a screen fits one by pixels and not by ports: an MX line is counted at its own 659,722 pixels and no thinner than 128, and where an MX30 has the ports only if lines run on from one column into the next, the line says so | None | Medium |
+| 2 | Data lines as they are cabled, and what takes them to the screen. Built in 1.246.0 | "4 data lines" in the screen's facts, and how they lie beside the cables: "A line takes 4 columns of panels." A long data cable for every line, picked from the lengths in the stock list, or one tick, "Fibre to the screen", which swaps them for CVT Pros, the fibre reel and a short cable for every line. It also settles MX30 or MX40 where a screen fits one by pixels and not by ports: an MX line is counted at its own 659,722 pixels and no panel thinner than 128, and where an MX30 has the ports only if lines run on from one column into the next, the line says so. With the tick on, an MX40 Pro is counted with all 40 ports | None | Medium |
 | 3 | Processors matched to the panel's receiving card | A panel says which card it has. An MX30 or MX40 Pro is offered only for NovaStar's A series cards, and the wrong make is never offered. About 35 processors known by name; one the list doesn't know asks once for its pixels and ports, as a panel does | Once for each panel and each unknown processor | Medium |
 | 4 | Backup lines | One tick, "Backup on every data line". Lines and long cables double. On an MX40 Pro the backups ride its 40-port mode, by fibre through CVT Pros, so it keeps all 20 lines. On any other the ports double too, and a second processor is asked for when they run out | One tick, off unless Admin sets it on | Small |
 | 5 | The right one of ours, and what to hire past them | The smallest of ours that drives the screen whole is offered first, which is built with step 1. A note when a VX4S or NovaPro HD would stretch a picture wider than HD, naming the one of ours that shows it pixel for pixel. Past our biggest, a hired unit added as a line to price | None on the quote. The office lists what it hires | Small |
 | 6 | A wiring plan for the crew | A drawing on the show pack: the screen from behind, each data line numbered with its port, each power circuit with its way on the distro | None | Large |
 | 7 | Frame rate and colour depth | Two choices under "More": 50, 60 or 120 Hz, and 8, 10 or 12-bit. They change what a line carries, and on an MX40 Pro what the unit loads. The wiki gives every figure | Two, hidden unless opened | Small |
 
-**Step 1 is built (1.245.3), and Colly chose the rest on 28 November: "All of
-it, hired kit included", which is steps 2 to 6.** They are built in this
-order, each on its own. Step 2 first, the data lines with the data cables or
-the CVT Pros and fibre: the stock list holds everything it would add (data
-cables at 20, 30 and 50 metres and a 100 metre reel, the CVT Pros, a 100
-metre single-mode fibre reel and its patch leads), and on our biggest screens
-it decides between the MX30 and the MX40. Then 4, the backup lines, which
-lean on 2. Then 3 and 5 together: the processors matched to each panel's
-card, and what to hire past ours. Then 6, the crew's wiring plan, which draws
-what the others count.
+**Steps 1 and 2 are built (1.245.3 and 1.246.0), and Colly chose the rest on
+28 November: "All of it, hired kit included", which is steps 2 to 6.** They
+are built in this order, each on its own. Step 2 came first, the data lines
+with the data cables or the CVT Pros and fibre: the stock list holds
+everything it adds (data cables at 20, 30 and 50 metres and a 100 metre reel,
+the CVT Pros, a 100 metre single-mode fibre reel and its patch leads), and on
+our biggest screens it decides between the MX30 and the MX40. Next is 4, the
+backup lines, which lean on 2. Then 3 and 5 together: the processors matched
+to each panel's card, and what to hire past ours. Then 6, the crew's wiring
+plan, which draws what the others count.
+
+What step 2 leaves for later, each said on the sheet where it bears on a
+screen: an MX40 Pro with some lines on its own sockets and the rest by fibre
+(with the tick on, every line goes by fibre); screens that stand apart and
+share a converter (the sheet asks for a look); and the patch lead between a
+VX4S and the converter beside it, which is counted as one more of the short
+cables.
 
 Step 3 has more to it since the wiki was read. It was for hired kit, and now
 it bears on our own: an MX drives only A series cards. If either of our panels
@@ -597,10 +645,11 @@ gives its sums. Until then, counting at 60 Hz in 8-bit colour is the safe
 side for nearly every show, since 50 Hz carries more.
 
 The short links between panels are in the stock list too, as "Absen Data Link"
-and a half-metre "Powercon True1". Step 2 could count them: a data link for
-every panel less one for each data line, and a power link for every panel less
-one for each circuit. Whether it should depends on whether they travel in the
-panels' cases or are picked on their own.
+and a half-metre "Powercon True1". Step 2 doesn't count them, and the sheet
+says so. It could: a data link for every panel less one for each data line,
+and a power link for every panel less one for each circuit. Whether it should
+depends on whether they travel in the panels' cases or are picked on their
+own.
 
 The sheet stays as simple as it is. It keeps its four questions: size, panel,
 hung or stacked, and how many. Everything above shows as a reason beside the
@@ -621,6 +670,7 @@ pixel for pixel gets one of those, however few panels there are.
 | Are the MX40s on VMP and firmware 1.4.0 or later? | The 40-port mode needs both | Yes |
 | What is the widest and tallest screen the VX4S's menu allows? | Its own sheet doesn't say | 3,840 wide and 1,920 tall, as its sister units |
 | Do shows run at 50 or 60 Hz? | 50 Hz carries a fifth more on each line | 60 Hz, the safe side |
+| On an MX30 or MX40, does VMP count two columns of the 4.8 mm panel side by side on one line as one area, or as two narrower than 128 pixels? | One area loses nothing, 30 panels a line. Two are counted wider, 24 a line | Two, the safe side: 24 a line |
 | Is a backup on every data line the house standard? | It doubles the ports and the long cables | No backup |
 | Do the short data and power links travel in the panels' cases, or are they picked on their own? | Picked on their own, the builder can count them | They travel with the panels, so none is added |
 | Which processors are hired in, from whom, and at what price? | The builder can only suggest what the office can get | Nothing suggested |
