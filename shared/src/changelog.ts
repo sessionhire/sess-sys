@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.245.4',
+    date: '2026-11-28',
+    title: 'A past quote opened from a link waits for the stock list',
+    what: 'Opening a past Current RMS quote straight from a link, on a device that had not been in the app before, the form to make a job from it could open before the stock list had arrived. Every kit line then showed as not found in the stock list, with no job it was for, and stayed that way however long you waited. The form now says it is still catching up and opens once the company’s copy has arrived, with its lines matched to the stock list. Putting a past quote on a job’s quote waits the same way.',
+    prs: [471],
+  },
+  {
     version: '1.245.3',
     date: '2026-11-28',
     title: 'An LED screen is held to every limit of its processor, and our bigger processors are known by name',

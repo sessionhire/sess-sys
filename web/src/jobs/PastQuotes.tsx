@@ -29,6 +29,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Refusal, useAct } from '../act.tsx'
 import { AdminWords } from '../AdminWords.tsx'
 import { Empty } from '../Empty.tsx'
+import { STILL_ARRIVING } from '../home/copying.ts'
 import { useAccess } from '../role.ts'
 import { client } from '../sync.ts'
 import { JOBS, MONEY, type Step } from '../Up.tsx'
@@ -346,8 +347,20 @@ export function PastQuoteScreen({ view, id: asked }: { view: View; id: string })
             )}
             <p className="hint">Prices before VAT, as Current RMS worked them out.</p>
           </section>
-          {doing === 'job' && <MakeJob view={view} past={loaded.data} forJob={forJob} onOnto={() => setDoing('onto')} onCancel={() => setDoing(undefined)} />}
-          {doing === 'onto' && <OntoJob view={view} past={loaded.data} first={forJob?.job} onCancel={() => setDoing(undefined)} />}
+          {/* Each form reads the stock list, the price list and the jobs here once, as it opens, so what's chosen on it stays while
+              the copy syncs. Opened before this device's copy has arrived (the link, on a device new to the app) it read nothing:
+              every line as written, no job it's for. So it opens once the copy is in, and says so meanwhile as Home does. */}
+          {doing && view.copying ? (
+            <section className="card" aria-label={doing === 'job' ? 'Make a job from this' : "Put it on a job's quote"}>
+              <h2>{doing === 'job' ? 'Make a job from this' : "Put it on a job's quote"}</h2>
+              <p className="empty">{STILL_ARRIVING}</p>
+            </section>
+          ) : (
+            <>
+              {doing === 'job' && <MakeJob view={view} past={loaded.data} forJob={forJob} onOnto={() => setDoing('onto')} onCancel={() => setDoing(undefined)} />}
+              {doing === 'onto' && <OntoJob view={view} past={loaded.data} first={forJob?.job} onCancel={() => setDoing(undefined)} />}
+            </>
+          )}
         </>
       )}
     </div>
@@ -497,7 +510,8 @@ function MakeJob({
   const [f, setF] = useState(first)
   const [agree, setAgree] = useState(first.agreedCents !== null)
   const pricing = pricingOf(view)
-  // Matched once, when the form opens, so the choices made on each line stay as the stock list syncs.
+  // Matched once, when the form opens, so the choices made on each line stay as the stock list syncs. The form isn't opened
+  // until this device's copy has arrived (PastQuoteScreen), so there's a stock list to match against.
   const [lines, setLines] = useState<RmsOffered[]>(() => rmsSuggestions(past.lines, pricing))
   const { run, error } = useAct()
   // Brought into view as it opens, below the past quote's lines: glided to, as it opened on this page (glide.ts).

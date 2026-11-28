@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 
 /**
  * Current RMS's history put to use (ADR 0092): the office matches past quotes to jobs, linking all the sure ones in a
@@ -102,11 +102,8 @@ test('the office matches past quotes to jobs and prices a line from what it was 
   expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
 })
 
-test('the office makes a job from a past quote, its lines matched to the stock list and charged as they were (ADR 0102)', async ({ browser, request }) => {
-  expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
-  expect((await request.post('/api/data/made-up')).ok()).toBe(true)
-  const office = await (await browser.newContext({ viewport: phoneSize })).newPage()
-
+/** Past quote 7, "Expo stand", as Current RMS would send it: four SM58s the stock list holds, mic stands charged nothing, an engineer. */
+async function expoStand(office: Page) {
   const expo = { ...opp(7, '1077', 'Expo stand', 'Other Co', 'Quotation', 'Provisional', '2027-02-01', 65000), endsAt: '2027-02-02T10:00:00.000Z' }
   const line = (id: number, path: string, more: Record<string, unknown>) => ({
     id, opportunityId: 7, path, kind: 'Principal', transaction: 'Rental', itemType: 'Product', itemId: null, name: '', description: '', quantity: 1, priceCents: 0,
@@ -127,6 +124,42 @@ test('the office makes a job from a past quote, its lines matched to the stock l
       },
     })
   )
+}
+
+test('a past quote opened before this device has its copy waits for it, so its lines still find their products', async ({ browser, request }) => {
+  expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
+  expect((await request.post('/api/data/made-up')).ok()).toBe(true)
+  const office = await (await browser.newContext({ viewport: phoneSize })).newPage()
+  await expoStand(office)
+  // The device's first copy held back, as a slow connection holds it, while the past quote itself has arrived.
+  let arrive = () => {}
+  const held = new Promise<void>((done) => (arrive = done))
+  await office.route('**/api/sync/pull**', async (route) => {
+    await held
+    await route.continue().catch(() => undefined)
+  })
+
+  await office.goto('/#jobs/money/current-rms/7/job')
+  await expect(office.getByRole('region', { name: 'Lines', exact: true })).toContainText('Shure SM58')
+  const form = office.getByRole('region', { name: 'Make a job from this' })
+  // Matched now it would find nothing in a stock list that isn't here yet, and the form matches once: it waits, and says so.
+  await expect(form).toContainText('Still catching up')
+  await expect(form.getByLabel("What's the job?")).toHaveCount(0)
+
+  arrive()
+  await expect(form.getByLabel("What's the job?")).toHaveValue('Expo stand')
+  await expect(form.getByRole('region', { name: 'Lines for the quote' })).toContainText('1 of 1 kit line found in the stock list')
+  await expect(form.getByRole('button', { name: 'Make job with 2 lines' })).toBeVisible()
+
+  expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
+})
+
+test('the office makes a job from a past quote, its lines matched to the stock list and charged as they were (ADR 0102)', async ({ browser, request }) => {
+  expect((await request.post('/api/data/start-fresh', fresh)).ok()).toBe(true)
+  expect((await request.post('/api/data/made-up')).ok()).toBe(true)
+  const office = await (await browser.newContext({ viewport: phoneSize })).newPage()
+
+  await expoStand(office)
   let linked: unknown
   await office.route('**/api/rms/matches', (route) => {
     linked = route.request().postDataJSON()
