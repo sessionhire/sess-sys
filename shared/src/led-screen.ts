@@ -152,7 +152,7 @@ const DISTRO = /\bdistro(?:s|bution)?\b/i
 const FOR_SCREENS = /\b(video|led|screens?|soca|socapex)\b/i
 const LED_PROCESSOR = /\bnova ?star|\bnovapro|\bvx ?\d|\bmctrl|\bbrompton|\btessera|\bcolorlight|\blinsn|\bled (?:wall |screen |video )?(?:processor|controller)s?\b|\bsending (?:box|card)/i
 /** What a processor's maker also makes that drives nothing: the fibre converter that carries its data lines to the screen, and the card inside a panel. */
-const NOT_A_PROCESSOR = /\bcvt ?\d{1,4}|\b(?:fib(?:er|re)|optical|media) ?conver(?:ter|tor)s?\b|\breceiving cards?\b/i
+const NOT_A_PROCESSOR = /\bcvt(?![a-z])|\b(?:fib(?:er|re)|optical|media) ?conver(?:ter|tor)s?\b|\breceiving cards?\b/i
 
 /** What a processor drives, from its maker's spec sheet. */
 interface Drives {
@@ -189,8 +189,8 @@ const PROCESSORS: readonly ({ is: RegExp } & Drives)[] = [
   { is: /\bmctrl ?660/i, pixels: 2_300_000, ports: 4, widest: 3_840, tallest: 3_840 },
   { is: /\bmctrl ?600/i, pixels: 2_300_000, ports: 4, widest: 3_840, tallest: 2_560 },
   { is: /\bmctrl ?300/i, pixels: 1_300_000, ports: 2, widest: 2_048, tallest: 1_200 },
-  // As they're said as well as as they're sold: "UHD Junior", "NovaPro UHD Jr", "Nova star pro UHD".
-  { is: /uhd[ -]?(?:jr|junior)/i, pixels: 10_400_000, ports: 16, widest: 16_384, tallest: 8_192 },
+  // As they're said as well as as they're sold: "UHD Junior", "UHD Jnr", "NovaPro UHD Jr", "Nova star pro UHD".
+  { is: /uhd[ -]?j(?:r|nr|unior)/i, pixels: 10_400_000, ports: 16, widest: 16_384, tallest: 8_192 },
   { is: /\bnova ?(?:star)? ?pro[ -]?uhd/i, pixels: 8_800_000, ports: 16, widest: 8_192, tallest: 8_192 },
   { is: /\bnova ?(?:star)? ?pro[ -]?hd/i, pixels: 2_300_000, ports: 4, widest: 3_840, tallest: 1_920 },
 ]
@@ -441,8 +441,13 @@ export function screenPlan(ask: ScreenAsk, models: readonly ScreenProduct[], pic
     const found = preferred(
       all
         .map((m) => ({ m, can: PROCESSORS.find((p) => p.is.test(said(m))) }))
-        // Named as one, or video kit with a model we know in its name: "MX30" says neither NovaStar nor processor.
-        .filter((p) => !NOT_A_PROCESSOR.test(p.m.name) && (LED_PROCESSOR.test(said(p.m)) || (p.m.department === 'video' && (!!p.can || /\bprocessors?\b/i.test(p.m.name))))),
+        // Named as one, filed as one ("LED Processor"), or video kit with a model we know in its name: "MX30" says neither
+        // NovaStar nor processor.
+        .filter(
+          (p) =>
+            !NOT_A_PROCESSOR.test(p.m.name) &&
+            (LED_PROCESSOR.test(said(p.m)) || LED_PROCESSOR.test(p.m.category) || (p.m.department === 'video' && (!!p.can || /\bprocessors?\b/i.test(p.m.name))))
+        ),
       (p) => (p.can ? 0 : 1),
       // The fewest that drive it, ours before one hired in, then the smallest that does: a big processor isn't sent to a small screen.
       (p) => (p.can && picture ? drivenBy(p.can, picture, count).units : 1),

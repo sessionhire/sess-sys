@@ -3,7 +3,8 @@
 28 November 2026. Colly: "Can you do some research on the LED processors so we
 can make the led wall builder more advanced?" And later the same morning: "we
 hold mx30s and mx40 and uhd juniors too", then "We also hold CVT 10 Pros in
-stock if that affects things". Both are worked in below.
+stock if that affects things", then "The mx30 should be in the stock list".
+All three are worked in below.
 
 What each processor we hold or are likely to hire can drive, from its maker's
 own sheet; what the LED screen builder ([ADR 0207](../adr/0207-an-led-screen-built-on-a-quote.md))
@@ -33,10 +34,12 @@ cabled. It read the VX4S and the NovaPro HD right. It did not know the MX30 or
 the MX40 Pro, knew the UHD Jr only by its full name, and had three hired units
 wrong.
 
-Only the VX4S and the NovaPro HD were in the stock list on 27 November. The
-builder offers a processor once it is a product there, so the MX30s, the MX40
-Pro, the UHD Jrs and the CVT10 Pros want adding. Any name with MX30, MX40,
-UHD Jr or UHD Junior in it is read.
+All five are in the stock list, filed as LED processors: "Novastar VX4S",
+"Novastar pro HD", "Novastar MX30", "Novastar MX40" and "Novastar UHD Jnr".
+The fibre converter is there as "Novastar CVT Pro". The builder reads each of
+those names, and the other ways they get written: MX 30, MX40 Pro, UHD Jr, UHD
+Junior, CVT10 Pro. The three bigger processors and the converter have no count
+yet, so the builder says none is free until they do.
 
 ## A processor's four limits
 
@@ -182,8 +185,10 @@ the truss at the screen.
 
 - **It is for the long run.** A data cable is good for about 100 metres, the
   limit of Gigabit Ethernet over copper. The fibre runs 300 metres on the
-  multi-mode CVT10 Pro-M and 10 kilometres on the single-mode Pro-S. Which of
-  the two ours are is on the label, and the fibre has to match.
+  multi-mode CVT10 Pro-M and 10 kilometres on the single-mode Pro-S. The
+  fibre in the stock list is single-mode (a 100 metre reel and LC patch
+  leads), so ours are taken to be the Pro-S. The label says for certain, and
+  the fibre has to match.
 - **The backup is built in.** A second fibre port on the CVT10 Pro takes over
   from the first, and each of the big three has a fibre output that copies or
   backs up the main one.
@@ -305,11 +310,12 @@ pixels, and ports counted by pixels alone.
 | MCTRL660 PRO | 4 ports, because it read the name as an MCTRL660 | 6 ports | Nothing yet. It matters once lines are counted as cabled |
 
 Of the five we hold it read two. The VX4S and the NovaPro HD were both read as
-2.3 million pixels from 4 ports, which is right. It had no figures for the
-MX30 or the MX40 Pro: each would have come with a note to check it by hand, and
-neither would have been offered at all unless its name said NovaStar or
-processor. It read a UHD Jr only when the name was written "Nova Pro UHD Jr".
-"NovaPro UHD Jr" as one word and "UHD Junior" were both missed.
+2.3 million pixels from 4 ports, which is right. The MX30, the MX40 and the
+UHD Jnr were offered, since each name says NovaStar, but with no figures: each
+came with a note to check it by hand, and none was chosen ahead of a VX4S. It
+read a UHD Jr only when the name was written "Nova Pro UHD Jr". And it offered
+the fibre converter, "Novastar CVT Pro", as a processor, for the same reason
+as the others: its name says NovaStar.
 
 - **It didn't check the widest or tallest picture.** A 16 by 2 metre screen of
   the 3.9 mm panel is 4,096 pixels wide. The builder passed it on one VX4S,
@@ -325,30 +331,40 @@ processor. It read a UHD Jr only when the name was written "Nova Pro UHD Jr".
   120 Hz show carries half as much on a line or less.
 - **It doesn't match the processor's make to the panel.** A Brompton or
   Colorlight unit in the stock list would be offered for a NovaStar panel.
-- **It only offers what is in the stock list.** With just the VX4S and the
-  NovaPro HD there, a screen past one of them was given two side by side,
-  when an MX30 drives it whole with one picture and no join. Once the bigger
-  ones are products the builder sends the smallest of ours that drives the
-  screen, which is built with step 1. What is left for step 5 is small: a
-  note when a picture is stretched from HD, and what to hire past our
-  biggest.
+- **It didn't send the right one of ours.** With no figures for the bigger
+  three, a screen past a VX4S was given two of them side by side, when an
+  MX30 drives it whole with one picture and no join. The builder now sends
+  the smallest of ours that drives the screen, which is built with step 1.
+  What is left for step 5 is small: a note when a picture is stretched from
+  HD, and what to hire past our biggest.
 
 ## What the builder can do next
 
 | | What it adds | What the person sees | New questions | Size |
 | --- | --- | --- | --- | --- |
 | 1 | Every limit checked | The processor line says which limit a screen breaks, in words. The three wrong readings are corrected | None | Small |
-| 2 | Data lines as they are cabled, and what takes them to the screen | "5 data lines of up to 3 columns" beside the processor. A long data cable for every line, or one tick, "Fibre to the screen", which swaps them for CVT10 Pros and a fibre to each | None | Medium |
-| 3 | Known processors, matched to the panel | About 35 processors known by name. One the list doesn't know asks once for its pixels and ports, as a panel does. A panel says which make of card it has, so the wrong make is never offered | Once for each panel and each unknown processor | Medium |
+| 2 | Data lines as they are cabled, and what takes them to the screen | "5 data lines of up to 3 columns" beside the processor. A long data cable for every line, picked from the lengths in the stock list, or one tick, "Fibre to the screen", which swaps them for CVT Pros and the fibre reel. It also settles MX30 or MX40 where a screen fits one by pixels and not by ports | None | Medium |
+| 3 | Hired processors, matched to the panel | About 35 processors known by name. One the list doesn't know asks once for its pixels and ports, as a panel does. A panel says which make of card it has, so the wrong make is never offered. Every processor we hold is a NovaStar and already known, so this matters when a processor or a panel is hired in | Once for each panel and each unknown processor | Medium |
 | 4 | Backup lines | One tick, "Backup on every data line". Lines, long cables and ports double, and a second processor is asked for when the ports run out | One tick, off unless Admin sets it on | Small |
 | 5 | The right one of ours, and what to hire past them | The smallest of ours that drives the screen whole is offered first, which is built with step 1. A note when a VX4S or NovaPro HD would stretch a picture wider than HD, naming the one of ours that shows it pixel for pixel. Past our biggest, a hired unit added as a line to price | None on the quote. The office lists what it hires | Small |
 | 6 | A wiring plan for the crew | A drawing on the show pack: the screen from behind, each data line numbered with its port, each power circuit with its way on the distro | None | Large |
 | 7 | Frame rate and colour depth | Two choices under "More": 50, 60 or 120 Hz, and 8 or 10-bit. They change what a line carries | Two, hidden unless opened | Small |
 
-**Step 1 is built (1.245.3).** The recommendation is to build 2 and 3 with it,
-then 4, then 5, then 6, and to leave 7 until a job asks for it: counting at
-60 Hz in 8-bit colour is the safe side for nearly every show, since 50 Hz
-carries more.
+**Step 1 is built (1.245.3).** The recommendation is to build 2 next, then 4,
+then 6. Step 2 has the most to give now: the stock list holds everything it
+would add (data cables at 20, 30 and 50 metres and a 100 metre reel, the
+CVT Pros, a 100 metre single-mode fibre reel and its patch leads), and on
+our biggest screens it decides between the MX30 and the MX40. Steps 3 and 5
+were recommended before the stock list was read. Every processor in it is a
+NovaStar the builder already knows, so they wait until a processor or a panel
+is hired in. Step 7 waits until a job asks for it: counting at 60 Hz in 8-bit
+colour is the safe side for nearly every show, since 50 Hz carries more.
+
+The short links between panels are in the stock list too, as "Absen Data Link"
+and a half-metre "Powercon True1". Step 2 could count them: a data link for
+every panel less one for each data line, and a power link for every panel less
+one for each circuit. Whether it should depends on whether they travel in the
+panels' cases or are picked on their own.
 
 The sheet stays as simple as it is. It keeps its four questions: size, panel,
 hung or stacked, and how many. Everything above shows as a reason beside the
@@ -364,14 +380,15 @@ pixel for pixel gets one of those, however few panels there are.
 
 | Question | Why it matters | Assumed until answered |
 | --- | --- | --- |
-| How many pixels across and down is each panel? | Every panel count here is worked from them | 128 × 128 for the 3.9 mm half-metre panel, 104 × 208 for the 4.8 mm metre panel |
+| How many pixels across and down is the 4.8 mm panel? | Every panel count is worked from them. The 3.9 mm panel's 128 × 128 is on its product now | 104 × 208 |
 | Which make of receiving card is in each panel? | A processor only drives its own make | NovaStar in both, since every processor we hold is NovaStar |
 | What is the widest and tallest screen the VX4S's menu allows? | Its own sheet doesn't say | 3,840 wide and 1,920 tall, as its sister units |
 | Do shows run at 50 or 60 Hz? | 50 Hz carries a fifth more on each line | 60 Hz, the safe side |
 | Is a backup on every data line the house standard? | It doubles the ports and the long cables | No backup |
+| Do the short data and power links travel in the panels' cases, or are they picked on their own? | Picked on their own, the builder can count them | They travel with the panels, so none is added |
 | Which processors are hired in, from whom, and at what price? | The builder can only suggest what the office can get | Nothing suggested |
-| Are the MX30s, the MX40 Pro, the UHD Jrs and the CVT10 Pros in the stock list, and how many of each? | The builder offers only what is a product, and counts what is free on the day | Not in the list yet |
-| Does the run to the screen usually go by data cable or by fibre, and are the CVT10 Pros the multi-mode or the single-mode kind? | It sets which cables the builder adds | Data cable, with fibre one tick away |
+| How many MX30s, MX40s, UHD Jnrs and CVT Pros are there? | They are in the stock list with no count, and the builder counts what is free on the day | None, so each shows as none free |
+| Does the run to the screen usually go by data cable or by fibre, and are the CVT Pros the single-mode kind? | It sets which cables the builder adds | Data cable, with fibre one tick away; single-mode, as the fibre in the stock list is |
 
 The builder already asks for a panel's pixels the first time that panel is
 used, and keeps them on its product.

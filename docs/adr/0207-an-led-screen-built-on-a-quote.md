@@ -122,16 +122,22 @@ drives, from its maker's own sheet, and seven things the builder can do with it.
 - **A name is read whole.** A VX400s (2.3 million pixels) is not a VX400 (2.6 million); an MCTRL660 PRO has six ports
   to the MCTRL660's four; and the MCTRL4K is held to its sheet's 3840 by 2160, not its catalogue's 4096.
 - **The processors we hold are five, not two.** Colly, the same morning: "we hold mx30s and mx40 and uhd juniors
-  too", then "We also hold CVT 10 Pros in stock if that affects things". The MX30 (6.5 million pixels from 10
-  ports), the MX40 Pro (8.8 million from 20) and the UHD Jr (10.4 million from 16) are read by name however it is
-  written: "MX30", "mx 40pro", "UHD Junior", "NovaPro UHD Jr". A video product is offered as a processor when its
-  name holds a model the builder knows, since "MX30" says neither NovaStar nor processor. The MX sheets give the
-  widest picture each takes in, not the widest screen it sends, so neither is checked on them.
+  too", then "We also hold CVT 10 Pros in stock if that affects things", then "The mx30 should be in the stock
+  list". It is: the stock list files five as LED processors, "Novastar VX4S", "Novastar pro HD", "Novastar MX30",
+  "Novastar MX40" and "Novastar UHD Jnr", and the research had gone by a copy of the Current RMS product table of
+  19 October that held only the first two. The MX30 (6.5 million pixels from 10 ports), the MX40 Pro (8.8 million
+  from 20) and the UHD Jr (10.4 million from 16) are read by name however it is written: "MX30", "mx 40pro",
+  "UHD Junior", "UHD Jnr", "NovaPro UHD Jr". A product is offered as a processor when it is filed as an LED
+  processor, or is video kit whose name holds a model the builder knows, since "MX30" says neither NovaStar nor
+  processor. The MX sheets give the widest picture each takes in, not the widest screen it sends, so neither is
+  checked on them. A test names all six as the stock list does.
 - **The smallest of ours that drives the screen whole is sent.** The fewest units first, ours before one hired in,
   then the smallest: a VX4S for a small screen, an MX30 past it, and two VX4S side by side only when nothing bigger
   is in the stock list.
 - **A fibre converter is not a processor.** A CVT10 Pro carries a processor's data lines to the screen down one
-  fibre and drives nothing, so it is never offered as one, and nor is a receiving card. Counting converters and
+  fibre and drives nothing, so it is never offered as one, and nor is a receiving card. Ours is "Novastar CVT Pro"
+  in the stock list, with no number in its name, and the builder as first built offered it among the processors
+  because its name says NovaStar: a CVT is left out with its number or without. Counting converters and
   fibre as the run to the screen belongs to the second step.
 - **Not yet:** data lines counted as they are cabled with the cables or fibre that take them to the screen, a
   backup on every line, the processor's make matched to the panel's, and what to hire in past our biggest. The

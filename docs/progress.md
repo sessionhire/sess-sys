@@ -17,9 +17,19 @@ waiting on someone.
 - Colly, later the same morning: "we hold mx30s and mx40 and uhd juniors too"
   and "We also hold CVT 10 Pros in stock if that affects things". The research
   first said two processors are held, the only two in the stock list, and is
-  rewritten around the five. None of the three bigger ones nor the CVT10 Pro
-  was a product on 27 November: they want adding before the builder can offer
-  them.
+  rewritten around the five.
+- Colly again: "The mx30 should be in the stock list. Can you see the live
+  app?" It is. The research had gone by a copy of the Current RMS product
+  table of 19 October, not the app. Read from the app's own stock list, all
+  five are there, filed as LED processors ("Novastar VX4S", "Novastar pro HD",
+  "Novastar MX30", "Novastar MX40", "Novastar UHD Jnr"), and the fibre
+  converter as "Novastar CVT Pro". Two of those names were not read by the
+  change as first pushed: "UHD Jnr" got no figures (it knew Jr and Junior),
+  and "CVT Pro", with no number in its name, was still offered as a
+  processor. Both are read now, a product filed as an LED processor is
+  offered as one whatever its name, and a test names all six as the stock
+  list does. Lesson: what is in the stock list is read from the app, not from
+  an export.
 - What it found in the builder: a processor has four limits and the builder
   checked two. It read the VX4S and the NovaPro HD right, did not know the
   MX30 or the MX40 Pro, and read a UHD Jr only when its name was written in
@@ -36,17 +46,17 @@ waiting on someone.
   units are corrected.
 - Built with it once the bigger ones were known: an MX30, MX40 Pro, MX20 and
   UHD Jr are read by name however it is written ("MX30", "mx 40pro", "UHD
-  Junior", "NovaPro UHD Jr"), a video product with a known model in its name
-  is offered as a processor, and the smallest of ours that drives the screen
-  whole is sent, ours before one hired in. A fibre converter or a receiving
-  card is never offered as a processor.
+  Junior", "UHD Jnr", "NovaPro UHD Jr"), a video product with a known model
+  in its name is offered as a processor, and the smallest of ours that drives
+  the screen whole is sent, ours before one hired in. A fibre converter or a
+  receiving card is never offered as a processor.
 - No new question and no change to the sheet: the reason shows where the
   processor's reason always did.
-- **Waiting on Colly:** which of the next steps to build (asked in the thread:
-  lines as cabled and known processors matched to the panel are recommended
-  next), and eight answers from the office listed in the research, starting
-  with each panel's pixels and whether the bigger processors and the fibre
-  converters are in the stock list.
+- **Waiting on Colly:** which of the next steps to build (Colly asked to be
+  asked again once the research was in line with the stock list), a count in
+  the stock list for the MX30, the MX40, the UHD Jnr and the CVT Pro, which
+  show as none free until they have one, and nine answers from the office
+  listed in the research, starting with the 4.8 mm panel's pixels.
 
 ## 28 November 2026: the webcam's Take photo waits for the picture
 

@@ -272,6 +272,39 @@ describe('a hung screen', () => {
     expect(sent(32, 4, [...stock, hired, product('MX40 Pro', video)])).toEqual([[id('MX40 Pro'), 1]])
     expect(sent(32, 4, [...stock, hired])).toEqual([[hired.id, 1]])
   })
+  it('reads the processors and the fibre converter as the stock list names them', () => {
+    // Their names and their category as they stand in the stock list on 28 November 2026.
+    const filed = { department: 'video', category: 'LED Processor' } as const
+    const names = ['Novastar VX4S', 'Novastar pro HD', 'Novastar MX30', 'Novastar MX40', 'Novastar UHD Jnr']
+    const list = [
+      ...stock.filter((m) => !/processor/i.test(m.name)),
+      product('Novastar VX4S', filed),
+      product('Novastar pro HD', filed),
+      product('Novastar MX30', { ...filed, aliases: ['MX30'] }),
+      product('Novastar MX40', { ...filed, aliases: ['MX40'] }),
+      product('Novastar UHD Jnr', filed),
+      product('Novastar CVT Pro', { department: 'video', category: '' }),
+    ]
+    const why = (name: string) => row(screenPlan(ask(10, 6, 'hung'), list, { processor: id(name) }, look), 'processor').why
+    expect(names.map(why)).toEqual([
+      'Drives 2.3 million pixels from 4 ports; this screen has 983,040',
+      'Drives 2.3 million pixels from 4 ports; this screen has 983,040',
+      'Drives 6.5 million pixels from 10 ports; this screen has 983,040',
+      'Drives 8.8 million pixels from 20 ports; this screen has 983,040',
+      'Drives 10.4 million pixels from 16 ports; this screen has 983,040',
+    ])
+    // The fibre converter drives nothing, with its number in its name or without.
+    expect(row(screenPlan(ask(10, 6, 'hung'), list, {}, look), 'processor').choices.map((c) => c.name).sort()).toEqual([...names].sort())
+    // Each screen goes to the smallest that drives it whole.
+    const sent = (cols: number, rows: number) => items(screenPlan(ask(cols, rows, 'hung'), list, {}, look), 'processor')
+    expect(sent(32, 4)).toEqual([[id('Novastar MX30'), 1]])
+    expect(sent(30, 15)).toEqual([[id('Novastar MX40'), 1]])
+    expect(sent(36, 16)).toEqual([[id('Novastar UHD Jnr'), 1]])
+    // Filed as an LED processor, one whose name says nothing of it is still offered, to be checked.
+    const odd = product('Kystar U4', filed)
+    expect(row(screenPlan(ask(10, 6, 'hung'), [...list, odd], { processor: odd.id }, look), 'processor').check).toBe("Check it drives 983,040 pixels: what it loads isn't known here.")
+    expect(row(screenPlan(ask(10, 6, 'hung'), [...list, product('Kystar U4', video)], {}, look), 'processor').choices.map((c) => c.name)).not.toContain('Kystar U4')
+  })
   it('counts every screen, and shares what can be shared', () => {
     const pair = screenPlan(ask(6, 4, 'hung', 2), stock, {}, look)
     expect(items(pair, 'panels')).toEqual([[absen.id, 48]])
