@@ -69,15 +69,15 @@ panels.
 panels form a rectangle, so a screen six panels tall carries six columns a
 line, 36 panels, not 39. The newer units lift this. NovaStar's VX Pro sheets
 sell "flexible screen configuration without rectangle restriction on a single
-Ethernet port", with "specific receiving cards", and the
+Ethernet port" as something that needs specific receiving cards, and the
 [MX20](https://chauvetprofessional.com/wp-content/uploads/2024/06/MX20-LED-Display-Controller-Specifications-V1.0.0.T2.pdf)'s sheet says the same of irregular screens. The MX30 and MX40 Pro
 sheets don't say either way. Counting whole columns is the safe side: it never
 asks for fewer ports than the screen needs.
 
 **A backup halves the ports.** A line runs through its panels and back into a
 second port, which takes over if the first feed fails. NovaStar lists backup
-between Ethernet ports on its MCTRL, MX and newer VX units, the UHD Jr tests it
-from its menu, and the NovaPro HD's manual shows a port in hot backup. The
+between Ethernet ports on its MCTRL, MX and newer VX units, the UHD Jr has a
+test for it, and the NovaPro HD's manual shows a port in hot backup. The
 VX4S's own sheet doesn't mention it, so that needs a check on the unit.
 
 **The make has to match the panel.** A processor only talks to its own maker's
@@ -97,42 +97,28 @@ Five kinds, all NovaStar. The VX4S and the NovaPro HD are the small ones: about
 than 1,920, from an HD picture that they scale to fit. The MX30, the MX40 Pro
 and the NovaPro UHD Jr are the big ones: 6.5 to 10.4 million pixels, a 4K
 picture in, and fibre outputs that each carry eight or ten data lines. Colly's
-"MX40" is read as the MX40 Pro, the only MX40 found in NovaStar's range.
+"MX40" is read as the MX40 Pro, the only MX40 found in NovaStar's range. The
+table in the short answer sets the five side by side.
 
-| Processor | Total pixels | Ports | Widest × tallest | Takes a picture up to | 3.9 mm panels |
-| --- | --- | --- | --- | --- | --- |
-| [VX4S](https://www.fullcompass.com/common/files/47354-VX4SBLZSpecSheet.pdf) | 2.3 million | 4 | 3,840 × 1,920, from the VX4S-N and VX4U sheets | 1920 × 1200 at 60 Hz | 140, or 35 m² |
-| [NovaPro HD](https://cdn.shopify.com/s/files/1/1741/5055/files/iris-nova-novaprohd_cutsheet.pdf) | No single figure given: 2.3 million is safe | 4 | 3,840 × 1,920 | 1080p at 60 Hz | 140, or 35 m² |
-| [MX30](https://goknight.com/content/documentation/MX30%20LED%20Display%20Controller%20Specifications-V1.0.0.pdf) | 6.5 million | 10 | Not given | 4K at 60 Hz | 396, or 99 m² |
-| [MX40 Pro](https://cdn.shopify.com/s/files/1/0150/7190/3844/files/MX40_Pro_LED_Display_Controller_Specifications-V1.0.0.pdf) | 8.8 million | 20 | Not given | 4K at 60 Hz | 537, or 134 m² |
-| [NovaPro UHD Jr](https://cdn.shopify.com/s/files/1/0150/7190/3844/files/NovaPro-UHD-Jr-All-in-One-Controller-Specifications-V1.0.1.pdf) | 10.4 million | 16 | 16,384 × 8,192 | 4K at 60 Hz | 634, or 158 m² |
+The two small ones, in full:
 
-| Processor | Inputs | Fibre outputs | Backup between ports | Weight and power |
-| --- | --- | --- | --- | --- |
-| VX4S | HDMI, DVI, DisplayPort, SDI, 2 VGA, 2 composite | None | Not on its sheet | 2.55 kg, 25 W |
-| NovaPro HD | HDMI, DVI, DisplayPort, 3G-SDI, VGA, composite | 4 | Yes | 6 kg, 30 W |
-| MX30 | HDMI 2.0, HDMI 1.4, DisplayPort, 2 3G-SDI | 2: one carries all ten lines, the other copies it | Yes | 7.2 kg, 55 W |
-| MX40 Pro | 3 HDMI 2.0, DisplayPort, 12G-SDI | 4: two carry ten lines each, two copy them | Yes | 7.5 kg, 70 W |
-| NovaPro UHD Jr | HDMI 2.0, DisplayPort, 4 DVI, 2 12G-SDI | 4: two carry eight lines each, two back them up | Yes | 6.3 kg, 70 W |
+| | [NovaStar VX4S](https://www.fullcompass.com/common/files/47354-VX4SBLZSpecSheet.pdf) | [NovaPro HD](https://cdn.shopify.com/s/files/1/1741/5055/files/iris-nova-novaprohd_cutsheet.pdf) |
+| --- | --- | --- |
+| Total pixels | 2.3 million | No single figure given: 2.3 million is safe |
+| Ethernet outputs | 4 | 4, and 4 fibre |
+| Widest and tallest | 3,840 and 1,920, from the VX4S-N and VX4U sheets | 3,840 and 1,920 |
+| Biggest picture it takes | 1920 × 1200 at 60 Hz | 1080p at 60 Hz |
+| Inputs | HDMI, DVI, DisplayPort, SDI, 2 VGA, 2 composite | HDMI, DVI, DisplayPort, 3G-SDI, VGA, composite |
+| Colour depth | 8 and 10-bit | Up to 12-bit on HDMI |
+| Joins with a second unit for a bigger screen | Yes | Yes |
+| Extras | Picture in picture, fades | Genlock, DMX, a backup unit |
+| Weight and power | 2.55 kg, 25 W | 6 kg, 30 W |
 
 In our panels, 2.3 million pixels is 140 of the 3.9 mm half-metre panels,
 which is 35 square metres: a 10 by 3.5 metre screen. In the 4.8 mm metre
 panels it is 106 panels, 53 square metres. The width limit of the two small
 ones is 15 metres of the 3.9 mm panel and the height limit is 7.5 metres.
 
-- **The big three's area is their pixel limit, and the ports can bind first.**
-  A 16 by 6 metre screen is 6.3 million pixels, inside an MX30. Counted by
-  panels alone it takes ten data lines, which is every port an MX30 has.
-  Cabled in whole columns it takes 11, one more than it has. The MX30's sheet
-  doesn't say which applies, so that is for step 2 below, and it is where the
-  MX40 Pro's twenty ports earn their keep.
-- **The MX30 and MX40 Pro sheets give no widest or tallest screen.** They
-  give the widest picture each takes in (8,192 pixels), which is not the same
-  thing, so the builder checks neither on them.
-- **The UHD Jr's fibre ports changed with its software.** Its first sheet
-  ([V1.0.1](https://cdn.shopify.com/s/files/1/0150/7190/3844/files/NovaPro-UHD-Jr-All-in-One-Controller-Specifications-V1.0.1.pdf)) sends ports 1 to 8 down one fibre and 9 to 16 down a second,
-  with two more as their backups. Its later sheet ([V1.3.0](https://jpleisure.co.uk/Data/novastar_novapro-uhd-jr_datasheet.pdf)) makes two of
-  the four inputs and two outputs. Either way a fibre carries eight lines.
 - **The VX4S figure is NovaStar's, not the distributor's.** NovaStar's sheet
   says 2.3 million. Elation's American
   [sheet](https://www.fullcompass.com/common/files/28276-ADJNovastarVX4SSpecificationsSheet.pdf)
@@ -141,18 +127,50 @@ ones is 15 metres of the 3.9 mm panel and the height limit is 7.5 metres.
 - **The NovaPro HD has a little more than the round figure.** Its sheet gives
   a 165 MHz pixel clock, which is 1920 × 1200 at 60 Hz, and lists 2304 × 1152
   among its output sizes, which is 2.65 million. Four ports carry 2.6 million
-  at most.
+  at most. Its four fibre outputs are the long-distance route. Its sheet
+  doesn't say what turns them back into data lines at the screen.
 - **The VX4S's own sheet gives no widest or tallest picture.** The 3,840 and
   1,920 come from its two sister units, the VX4S-N and the VX4U. NovaStar's
   VX4S manual is reported to say the same, but the copies online refused to
   open, so it is worth one look at the unit's menu.
+
+The three big ones, in full:
+
+| | [MX30](https://goknight.com/content/documentation/MX30%20LED%20Display%20Controller%20Specifications-V1.0.0.pdf) | [MX40 Pro](https://cdn.shopify.com/s/files/1/0150/7190/3844/files/MX40_Pro_LED_Display_Controller_Specifications-V1.0.0.pdf) | [NovaPro UHD Jr](https://cdn.shopify.com/s/files/1/0150/7190/3844/files/NovaPro-UHD-Jr-All-in-One-Controller-Specifications-V1.0.1.pdf) |
+| --- | --- | --- | --- |
+| Total pixels | 6.5 million | 8.8 million | 10.4 million |
+| Ethernet outputs | 10, and 2 fibre | 20, and 4 fibre | 16, and 4 fibre |
+| Widest and tallest | Not given | Not given | 16,384 and 8,192 |
+| Biggest picture it takes | 4K at 60 Hz | 4K at 60 Hz, or 8,192 × 1,080 | 4K at 60 Hz |
+| Inputs | HDMI 2.0, HDMI 1.4, DisplayPort, 2 3G-SDI | 3 HDMI 2.0, DisplayPort, 12G-SDI | HDMI 2.0, DisplayPort, 4 DVI, 2 12G-SDI |
+| Colour depth | 8 and 10-bit, HDR10 | 8, 10 and 12-bit, HDR10 | 8, 10 and 12-bit, HDR |
+| Joins with a second unit for a bigger screen | Up to 20 on one genlock signal | Up to 10 on one genlock signal | Up to 4, with a video distributor |
+| What a fibre carries | All ten lines on one, copied on the second | Ten lines on each of two, copied on the other two | Eight lines on each of two |
+| Backup between ports | Yes | Yes | Yes |
+| Weight and power | 7.2 kg, 55 W | 7.5 kg, 70 W | 6.3 kg, 70 W |
+
+- **The big three's area is their pixel limit, and the ports can bind first.**
+  A 16 by 6 metre screen is 6.3 million pixels, inside an MX30. Counted by
+  panels alone it takes ten data lines, which is every port an MX30 has.
+  Cabled in whole columns it takes 11, one more than it has. The MX30's sheet
+  doesn't say which applies, so that is for step 2 below, and it is where the
+  MX40 Pro's twenty ports earn their keep.
+- **The MX30 and MX40 Pro sheets give no widest or tallest screen.** They
+  give the widest picture each takes in, 8,192 pixels, which is not the same
+  thing, so the builder checks neither on them.
+- **The UHD Jr's fibre ports changed with its software.** Its first sheet
+  ([V1.0.1](https://cdn.shopify.com/s/files/1/0150/7190/3844/files/NovaPro-UHD-Jr-All-in-One-Controller-Specifications-V1.0.1.pdf)) sends ports 1 to 8 down one fibre and 9 to 16 down a
+  second, with the other two as their hot backups. Its later sheet
+  ([V1.3.0](https://jpleisure.co.uk/Data/novastar_novapro-uhd-jr_datasheet.pdf)) makes two of the four inputs and leaves two outputs,
+  set to back up or to copy. Which ours do depends on their software, so it
+  is worth one look.
 
 ## Fibre to the screen: the CVT10 Pro
 
 The [CVT10 Pro](https://cdn.shopify.com/s/files/1/0099/2260/9218/files/CVT10_Pro_Fiber_Converter_Specifications-V1.0.0.T2.pdf) is a fibre converter, not a processor. It turns one
 10 gigabit fibre into ten Gigabit data ports, or ten ports into one fibre, so
 the long run from the processor to the screen is a single fibre in place of a
-data cable for every line. It is sealed to IP65, weighs 5.9 kg and hangs on
+data cable for every line. It is sealed to IP65, weighs 5.9 kg and can hang on
 the truss at the screen.
 
 | Processor | Lines down one fibre | CVT10 Pros for all its lines |
@@ -169,10 +187,9 @@ the truss at the screen.
 - **The backup is built in.** A second fibre port on the CVT10 Pro takes over
   from the first, and each of the big three has a fibre output that copies or
   backs up the main one.
-- **With a VX4S or NovaPro HD it works as a pair.** Neither sends ten lines
+- **With a VX4S or NovaPro HD it works as a pair.** Neither sends its lines
   down one fibre, so one CVT10 Pro turns their ports into fibre and a second
-  turns it back at the screen. The NovaPro HD's own four fibre outputs are
-  not said to feed a CVT10 Pro.
+  turns it back at the screen.
 - **With a UHD Jr it gives eight ports, not ten.** Its sheet says a unit with
   8 or 16 ports uses the CVT10 Pro's first eight. The same sheet warns that
   ports 9 and 10 may want a software update before they work from fibre, so
@@ -368,7 +385,7 @@ above. The rest:
 
 - VX4S: [specifications, Rev1.0.5](https://www.fullcompass.com/common/files/47354-VX4SBLZSpecSheet.pdf); the [VX4U cut sheet](https://cdn.shopify.com/s/files/1/1741/5055/files/novastar-vx4u_cutsheet.pdf) and the VX4S-N page of [NovaStar's 2021 catalogue](https://www.ac-et.com/storage/product_images/novastar/novastar-mctrlr5-led-controller/novastar-mctrlr5-novastar-catalog-2021.pdf) for 3,840 wide and 1,920 tall.
 - NovaPro HD: [cut sheet](https://cdn.shopify.com/s/files/1/1741/5055/files/iris-nova-novaprohd_cutsheet.pdf) and [user manual](https://www.fullcompass.com/common/files/62167-NOVAPROHDBLZUserManual.pdf).
-- MX30 and MX40 Pro: the specifications V1.0.0 of each, linked from the table of what we hold.
+- MX30 and MX40 Pro: the specifications V1.0.0 of each, linked from the table of the three big ones.
 - NovaPro UHD Jr: specifications [V1.0.1](https://cdn.shopify.com/s/files/1/0150/7190/3844/files/NovaPro-UHD-Jr-All-in-One-Controller-Specifications-V1.0.1.pdf) and [V1.3.0](https://jpleisure.co.uk/Data/novastar_novapro-uhd-jr_datasheet.pdf), which differ on the fibre ports.
 - CVT10 Pro: [specifications V1.0.0](https://cdn.shopify.com/s/files/1/0099/2260/9218/files/CVT10_Pro_Fiber_Converter_Specifications-V1.0.0.T2.pdf). The 100 metres for a data cable is Gigabit Ethernet's own limit, not from a sheet.
 - The table of pixels a port carries: the [MX30](https://goknight.com/content/documentation/MX30%20LED%20Display%20Controller%20Specifications-V1.0.0.pdf) and [KU20](https://www.ac-et.com/storage/product_images/novastar/ku20-led-display-controller/ku20-led-display-controller-specification-sheet-ku20-led-display-controller-specifications-v1.1.0.pdf) sheets.
