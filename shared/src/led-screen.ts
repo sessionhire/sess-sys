@@ -151,6 +151,8 @@ const NOT_A_TRUSS_PLATE = /\b(pipe|drape|stack|adapt[eo]rs?|speakers?|mics?|stan
 const DISTRO = /\bdistro(?:s|bution)?\b/i
 const FOR_SCREENS = /\b(video|led|screens?|soca|socapex)\b/i
 const LED_PROCESSOR = /\bnova ?star|\bnovapro|\bvx ?\d|\bmctrl|\bbrompton|\btessera|\bcolorlight|\blinsn|\bled (?:wall |screen |video )?(?:processor|controller)s?\b|\bsending (?:box|card)/i
+/** What a processor's maker also makes that drives nothing: the fibre converter that carries its data lines to the screen, and the card inside a panel. */
+const NOT_A_PROCESSOR = /\bcvt ?\d{1,4}|\b(?:fib(?:er|re)|optical|media) ?conver(?:ter|tor)s?\b|\breceiving cards?\b/i
 
 /** What a processor drives, from its maker's spec sheet. */
 interface Drives {
@@ -177,15 +179,20 @@ const PROCESSORS: readonly ({ is: RegExp } & Drives)[] = [
   { is: /\bvx ?16s/i, pixels: 10_400_000, ports: 16, widest: 16_384, tallest: 8_192 },
   { is: /\bvx ?6s/i, pixels: 3_900_000, ports: 6, widest: 4_096, tallest: 4_096 },
   { is: /\bvx ?4[su]?\b/i, pixels: 2_300_000, ports: 4, widest: 3_840, tallest: 1_920 },
+  // The MX range's sheets give the widest picture each takes in, not the widest screen it sends, so neither is checked.
+  { is: /\bmx ?40(?!\d)/i, pixels: 8_800_000, ports: 20 },
+  { is: /\bmx ?30(?!\d)/i, pixels: 6_500_000, ports: 10 },
+  { is: /\bmx ?20(?!\d)/i, pixels: 3_900_000, ports: 6 },
   // 3840 by 2160 on its own sheet; the maker's 2021 catalogue says 4096 by 2160, and the sheet is the one kept to.
   { is: /\bmctrl ?4k/i, pixels: 3_840 * 2_160, ports: 16, widest: 3_840, tallest: 3_840 },
   { is: /\bmctrl ?660 ?pro/i, pixels: 2_300_000, ports: 6, widest: 3_840, tallest: 3_840 },
   { is: /\bmctrl ?660/i, pixels: 2_300_000, ports: 4, widest: 3_840, tallest: 3_840 },
   { is: /\bmctrl ?600/i, pixels: 2_300_000, ports: 4, widest: 3_840, tallest: 2_560 },
   { is: /\bmctrl ?300/i, pixels: 1_300_000, ports: 2, widest: 2_048, tallest: 1_200 },
-  { is: /\bnova.*\bpro ?uhd ?jr/i, pixels: 10_400_000, ports: 16, widest: 16_384, tallest: 8_192 },
-  { is: /\bnova.*\bpro ?uhd/i, pixels: 8_800_000, ports: 16, widest: 8_192, tallest: 8_192 },
-  { is: /\bnova.*\bpro ?hd/i, pixels: 2_300_000, ports: 4, widest: 3_840, tallest: 1_920 },
+  // As they're said as well as as they're sold: "UHD Junior", "NovaPro UHD Jr", "Nova star pro UHD".
+  { is: /uhd[ -]?(?:jr|junior)/i, pixels: 10_400_000, ports: 16, widest: 16_384, tallest: 8_192 },
+  { is: /\bnova ?(?:star)? ?pro[ -]?uhd/i, pixels: 8_800_000, ports: 16, widest: 8_192, tallest: 8_192 },
+  { is: /\bnova ?(?:star)? ?pro[ -]?hd/i, pixels: 2_300_000, ports: 4, widest: 3_840, tallest: 1_920 },
 ]
 
 /**
@@ -433,11 +440,13 @@ export function screenPlan(ask: ScreenAsk, models: readonly ScreenProduct[], pic
     const picture = f.pixelsW && f.pixelsH ? { cols: f.cols, rows: f.rows, pixelsW: f.pixelsW, pixelsH: f.pixelsH } : null
     const found = preferred(
       all
-        .filter((m) => LED_PROCESSOR.test(said(m)) || (m.department === 'video' && /\bprocessors?\b/i.test(m.name)))
-        .map((m) => ({ m, can: PROCESSORS.find((p) => p.is.test(said(m))) })),
+        .map((m) => ({ m, can: PROCESSORS.find((p) => p.is.test(said(m))) }))
+        // Named as one, or video kit with a model we know in its name: "MX30" says neither NovaStar nor processor.
+        .filter((p) => !NOT_A_PROCESSOR.test(p.m.name) && (LED_PROCESSOR.test(said(p.m)) || (p.m.department === 'video' && (!!p.can || /\bprocessors?\b/i.test(p.m.name))))),
       (p) => (p.can ? 0 : 1),
-      // The fewest that drive it, then the smallest that does: a big processor isn't sent to a small screen.
+      // The fewest that drive it, ours before one hired in, then the smallest that does: a big processor isn't sent to a small screen.
       (p) => (p.can && picture ? drivenBy(p.can, picture, count).units : 1),
+      (p) => (p.m.dryHire ? 1 : 0),
       (p) => priced(p.m.id),
       (p) => p.can?.pixels ?? 0,
       (p) => enough(p.m.id, 1)

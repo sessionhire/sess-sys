@@ -12,27 +12,43 @@ waiting on someone.
 - The research is in [research/led-processors.md](research/led-processors.md):
   about 30 processors read from their makers' own sheets (NovaStar's VX,
   NovaPro, MCTRL and MX ranges, Brompton's Tessera, Colorlight), NovaStar's own
-  sum for what one port carries, the two we hold in full, and seven things the
-  builder can do with it, in order.
+  sum for what one port carries, the five we hold in full with the CVT10 Pro
+  fibre converter, and seven things the builder can do with it, in order.
+- Colly, later the same morning: "we hold mx30s and mx40 and uhd juniors too"
+  and "We also hold CVT 10 Pros in stock if that affects things". The research
+  first said two processors are held, the only two in the stock list, and is
+  rewritten around the five. None of the three bigger ones nor the CVT10 Pro
+  was a product on 27 November: they want adding before the builder can offer
+  them.
 - What it found in the builder: a processor has four limits and the builder
-  checked two. Its figures for the two we hold were right. Three hired units
-  were misread: a VX400s as a VX400, an MCTRL660 PRO as an MCTRL660, and the
-  MCTRL4K by its catalogue, not its sheet.
+  checked two. It read the VX4S and the NovaPro HD right, did not know the
+  MX30 or the MX40 Pro, and read a UHD Jr only when its name was written in
+  full. Three hired units were misread: a VX400s as a VX400, an MCTRL660 PRO
+  as an MCTRL660, and the MCTRL4K by its catalogue, not its sheet.
 - Built here, the first of the seven: a screen is held to the widest and
-  tallest picture its processor sends as well as its pixels and ports. Each of
-  ours stops at 3,840 by 1,920 pixels, so a 16 by 2 metre screen of the 3.9 mm
-  panel (4,096 wide) is no longer passed on one. A screen more than one drives
+  tallest picture its processor sends as well as its pixels and ports. The
+  VX4S and the NovaPro HD stop at 3,840 by 1,920 pixels, so a 16 by 2 metre
+  screen of the 3.9 mm panel (4,096 wide) is no longer passed on one. A screen
+  more than one drives
   is split into the fewest parts that each fit one, in whole panels, and the
   line says which limit decided it. Several screens share one processor while
   its pixels, its ports and the room in its picture last. The three misread
   units are corrected.
+- Built with it once the bigger ones were known: an MX30, MX40 Pro, MX20 and
+  UHD Jr are read by name however it is written ("MX30", "mx 40pro", "UHD
+  Junior", "NovaPro UHD Jr"), a video product with a known model in its name
+  is offered as a processor, and the smallest of ours that drives the screen
+  whole is sent, ours before one hired in. A fibre converter or a receiving
+  card is never offered as a processor.
 - No new question and no change to the sheet: the reason shows where the
   processor's reason always did.
 - **Waiting on Colly:** which of the next steps to build (asked in the thread:
   lines as cabled and known processors matched to the panel are recommended
-  next), and six answers from the office listed in the research, starting
-  with each panel's pixels.
+  next), and eight answers from the office listed in the research, starting
+  with each panel's pixels and whether the bigger processors and the fibre
+  converters are in the stock list.
 
+## 28 November 2026: the webcam's Take photo waits for the picture
 
 **Done (1.245.2, #469)**
 

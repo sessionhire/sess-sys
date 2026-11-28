@@ -241,6 +241,37 @@ describe('a hung screen', () => {
     expect(why('Novastar MCTRL4K')).toBe('Drives 8.3 million pixels from 16 ports; this screen has 983,040')
     expect(why('Novastar VX4S-N')).toBe('Drives 2.3 million pixels from 4 ports; this screen has 983,040')
   })
+  it('knows the bigger processors we hold by whatever they are called, and sends the smallest of ours that drives the screen whole', () => {
+    const with_ = (name: string, more: Partial<ScreenProduct> = video) => row(screenPlan(ask(10, 6, 'hung'), [...stock, product(name, more)], { processor: id(name) }, look), 'processor')
+    expect(with_('Novastar MX30').why).toBe('Drives 6.5 million pixels from 10 ports; this screen has 983,040')
+    for (const name of ['MX40', 'Novastar MX40 Pro', 'mx 40pro']) expect(with_(name).why).toBe('Drives 8.8 million pixels from 20 ports; this screen has 983,040')
+    expect(with_('MX20').why).toBe('Drives 3.9 million pixels from 6 ports; this screen has 983,040')
+    for (const name of ['UHD Junior', 'NovaPro UHD Jr', 'Nova star pro UHD jr']) expect(with_(name).why).toBe('Drives 10.4 million pixels from 16 ports; this screen has 983,040')
+    expect(with_('NovaPro UHD').why).toBe('Drives 8.8 million pixels from 16 ports; this screen has 983,040')
+    expect(with_('NovaPro HD').why).toBe('Drives 2.3 million pixels from 4 ports; this screen has 983,040')
+    // An MX2000 Pro is built from cards, so what it drives is no one figure: it is offered, to be checked.
+    expect(with_('Novastar MX2000 Pro').check).toBe("Check it drives 983,040 pixels: what it loads isn't known here.")
+    // "MX30" says neither NovaStar nor processor: among the video kit it's known by its model, and elsewhere it's something else.
+    const offered = (extra: ScreenProduct[]) => row(screenPlan(ask(10, 6, 'hung'), [...stock, ...extra], {}, look), 'processor').choices.map((c) => c.name)
+    expect(offered([product('MX30', video)])).toEqual(['Novastar vx4s Processor', 'Nova star pro HD video processor', 'MX30'])
+    expect(offered([product('MX30', { department: 'audio', category: 'Audio' })])).toEqual(['Novastar vx4s Processor', 'Nova star pro HD video processor'])
+    // The fibre converter that carries its lines to the screen, and the card in a panel, drive nothing.
+    expect(offered([product('Novastar CVT10 Pro', video), product('Novastar fibre converter', video), product('Novastar A8s receiving card', video)])).toEqual(['Novastar vx4s Processor', 'Nova star pro HD video processor'])
+
+    const ours = [...stock, product('MX30', video), product('MX40 Pro', video), product('UHD Junior', video)]
+    const sent = (cols: number, rows: number, list = ours) => items(screenPlan(ask(cols, rows, 'hung'), list, {}, look), 'processor')
+    // A small screen keeps a small one. One 16 m wide is past a VX4S's picture: one MX30, not two VX4S.
+    expect(sent(10, 6)).toEqual([[id('Novastar vx4s Processor'), 1]])
+    expect(sent(32, 4)).toEqual([[id('MX30'), 1]])
+    expect(row(screenPlan(ask(32, 4, 'hung'), ours, {}, look), 'processor').why).toBe('Drives 6.5 million pixels from 10 ports; this screen has 2,097,152')
+    // 450 panels are 7.4 million pixels, past the MX30: the MX40 Pro. 576 are 9.4 million, past that too: the UHD Jr.
+    expect(sent(30, 15)).toEqual([[id('MX40 Pro'), 1]])
+    expect(sent(36, 16)).toEqual([[id('UHD Junior'), 1]])
+    // One of ours is taken before a smaller one hired in that would also do it.
+    const hired = product('Novastar VX1000 processor', { ...video, dryHire: true })
+    expect(sent(32, 4, [...stock, hired, product('MX40 Pro', video)])).toEqual([[id('MX40 Pro'), 1]])
+    expect(sent(32, 4, [...stock, hired])).toEqual([[hired.id, 1]])
+  })
   it('counts every screen, and shares what can be shared', () => {
     const pair = screenPlan(ask(6, 4, 'hung', 2), stock, {}, look)
     expect(items(pair, 'panels')).toEqual([[absen.id, 48]])

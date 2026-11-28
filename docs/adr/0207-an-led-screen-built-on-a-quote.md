@@ -111,8 +111,9 @@ Colly asked for research on the processors, to make the builder more advanced. I
 drives, from its maker's own sheet, and seven things the builder can do with it. The first is built here (1.245.3).
 
 - **A processor is held to four limits, not two.** The pixels it loads and its ports, as before, and now the widest
-  and tallest picture it sends. Both of ours stop at 3,840 pixels wide and 1,920 tall, which is 15 metres and
-  7.5 metres of the 3.9 mm panel: a 16 by 2 metre screen is 4,096 pixels wide and was passed on one of them.
+  and tallest picture it sends. The VX4S and the NovaPro HD stop at 3,840 pixels wide and 1,920 tall, which is
+  15 metres and 7.5 metres of the 3.9 mm panel: a 16 by 2 metre screen is 4,096 pixels wide and was passed on one
+  of them.
 - **A screen that is more than one drives is split.** Into the fewest parts that each fit one processor, in whole
   panels, side by side before one above another, and the line names the limit that decided it: "One drives a picture
   3,840 pixels wide at most and this screen is 4,096: 2 side by side, each driving part of it".
@@ -120,5 +121,18 @@ drives, from its maker's own sheet, and seven things the builder can do with it.
   or above each other in the one picture it sends.
 - **A name is read whole.** A VX400s (2.3 million pixels) is not a VX400 (2.6 million); an MCTRL660 PRO has six ports
   to the MCTRL660's four; and the MCTRL4K is held to its sheet's 3840 by 2160, not its catalogue's 4096.
-- **Not yet:** data lines counted as they are cabled, a backup on every line, the processor's make matched to the
-  panel's, and what to hire in when ours can't drive a screen. The research lists them in the order to build them.
+- **The processors we hold are five, not two.** Colly, the same morning: "we hold mx30s and mx40 and uhd juniors
+  too", then "We also hold CVT 10 Pros in stock if that affects things". The MX30 (6.5 million pixels from 10
+  ports), the MX40 Pro (8.8 million from 20) and the UHD Jr (10.4 million from 16) are read by name however it is
+  written: "MX30", "mx 40pro", "UHD Junior", "NovaPro UHD Jr". A video product is offered as a processor when its
+  name holds a model the builder knows, since "MX30" says neither NovaStar nor processor. The MX sheets give the
+  widest picture each takes in, not the widest screen it sends, so neither is checked on them.
+- **The smallest of ours that drives the screen whole is sent.** The fewest units first, ours before one hired in,
+  then the smallest: a VX4S for a small screen, an MX30 past it, and two VX4S side by side only when nothing bigger
+  is in the stock list.
+- **A fibre converter is not a processor.** A CVT10 Pro carries a processor's data lines to the screen down one
+  fibre and drives nothing, so it is never offered as one, and nor is a receiving card. Counting converters and
+  fibre as the run to the screen belongs to the second step.
+- **Not yet:** data lines counted as they are cabled with the cables or fibre that take them to the screen, a
+  backup on every line, the processor's make matched to the panel's, and what to hire in past our biggest. The
+  research lists them in the order to build them.
