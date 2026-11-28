@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.245.2',
+    date: '2026-11-28',
+    title: 'The webcam’s Take photo waits for the picture',
+    what: 'Adding an item from a freelancer’s link on a laptop, a press on Take photo in the moment after the camera was allowed did nothing, and nothing said why: the camera had no picture yet. Take photo now stays off, with “Turning the camera on…” beside it, until the picture is on, as it already did inside the app.',
+    prs: [469],
+  },
+  {
     version: '1.245.1',
     date: '2026-11-28',
     title: 'The LED screen builder no longer slides sideways',
