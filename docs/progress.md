@@ -5,7 +5,7 @@ waiting on someone.
 
 ## 28 November 2026: the LED screen builder no longer slides sideways
 
-**Done (1.245.1, #0)**
+**Done (1.245.1, #468)**
 
 - Colly: "There's some unnecessary horizontal scrolling on the led screen
   builder window can you investigate?"
