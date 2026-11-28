@@ -142,3 +142,27 @@ drives, from its maker's own sheet, and seven things the builder can do with it.
 - **Not yet:** data lines counted as they are cabled with the cables or fibre that take them to the screen, a
   backup on every line, the processor's make matched to the panel's, and what to hire in past our biggest. The
   research lists them in the order to build them.
+
+## Amended 28 November 2026: the MX range held to NovaStar's current figures
+
+Colly, the same day: "you can connect 4 cvt10 pros to effectively make it a 40 port processor"; of the fibre outputs that
+copy each other, "This can be changed in VMP so that the 4 ports operate independently, rather than cloned"; and
+"https://coex.wiki/ has great up to date documentation". The amendment above went by the first sheets of the MX30 and the
+MX40 Pro, as their distributors host them. NovaStar's own wiki for the range is newer, and where the two differ the wiki
+is kept to (1.245.5). [The research](../research/led-processors.md) has what it says in full.
+
+- **An MX40 Pro drives 9 million pixels**, not 8.8 million.
+- **An MX30 or an MX40 Pro sends a screen up to 16,384 pixels wide or tall**, and an MX20 or a KU20 up to 4,096. This
+  replaces "The MX sheets give the widest picture each takes in, not the widest screen it sends, so neither is checked
+  on them": the wiki gives the screen each sends, and it is checked.
+- **A data line from the MX range carries 659,722 pixels.** That is the maker's own sum: pixels × 24 bits × 60 Hz, under
+  95% of a gigabit. In the 3.9 mm panel it is 40 panels a line in place of 39. Every other processor is still counted
+  at the 650,000 its sheets size it by, so point 6's "a port for each 650,000 of them" holds for the rest.
+- **A KU20 is read by name**: 3.9 million pixels from 6 ports, as the MX20.
+- **Where a figure comes from is part of this.** For the MX range it is NovaStar's wiki, and for the rest the maker's
+  sheet. A distributor's copy of a first sheet is where the three figures above went wrong.
+- **Known now, and not built here.** An MX40 Pro's four fibre outputs can each carry ten data lines of their own: its
+  40-port mode, with VMP and firmware 1.4.0 or later. The first sheet had two of them only copying the other two. Ports
+  21 to 40 leave by fibre alone, through CVT10 Pros, so they come into the builder with the data lines and their fibre,
+  and with the backup on every line, which they carry without a second processor. And the MX range drives only panels
+  fitted with NovaStar's A series receiving cards, which the builder will need to be told of each panel.

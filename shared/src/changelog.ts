@@ -28,6 +28,14 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.245.5',
+    date: '2026-11-28',
+    title: 'The MX30 and MX40 are held to NovaStar’s current figures',
+    what: 'The LED screen builder took what an MX30 and an MX40 can drive from their first sheets, and NovaStar’s own pages for them are newer. An MX40 drives 9 million pixels, not 8.8 million. An MX30 or an MX40 sends a screen up to 16,384 pixels wide or tall, which is now checked. One data line from either carries 659,722 pixels, not 650,000: that is 40 of the 3.9 mm panels on a line in place of 39, so some screens take a line fewer. A KU20 is known by name. The research behind the builder now also covers how an MX40 sends 40 separate data lines down its four fibres to four CVT Pros, which comes into the builder with the data lines.',
+    prs: [472],
+    adrs: [207],
+  },
+  {
     version: '1.245.4',
     date: '2026-11-28',
     title: 'A past quote opened from a link waits for the stock list',
