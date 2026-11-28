@@ -3,6 +3,32 @@
 Newest first. Each entry says what changed, what was checked, and what is
 waiting on someone.
 
+## 28 November 2026: the LED screen builder no longer slides sideways
+
+**Done (1.245.1, #0)**
+
+- Colly: "There's some unnecessary horizontal scrolling on the led screen
+  builder window can you investigate?"
+- Found by opening the builder at twenty widths with the kit named as the
+  stock list names it. Where a part has more than one product to choose from
+  (motors, processor, power distro), the choice is a drop-down, and a
+  drop-down is as wide as its longest name. "Santasom 18way socapex video
+  distro" made the kit list 414px wide, so the sheet slid sideways on any
+  phone narrower than that: 24px on a 390px phone, 94px on a 320px one. On a
+  tablet and at a desk these names had room.
+- Each stack in the builder is now a column no wider than the sheet, so the
+  drop-down is cut to its row and shows its name with an ellipsis; opened, it
+  lists every name in full. That holds at every width, so a longer name
+  can't do the same at a desk, where the kit's column is narrow again beside
+  the questions.
+- Why the first tests missed it: their stock had one processor and one
+  distro, so those parts had no drop-down, and the phone test built a ground
+  stack, which has no motors. The new test names two of each as they really
+  are and checks nine widths from 320 to 1440px. It fails without the fix.
+- Checked: the builder's four browser tests, and the sheet at twenty widths in
+  six states (fresh, hung, ground stacked, a panel's size asked, another
+  product being found, a change listed): nothing past its edge in any.
+
 ## 27 November 2026: an LED screen built on a quote
 
 **Done (1.245.0, #466, ADR 0207)**

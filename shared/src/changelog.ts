@@ -28,6 +28,13 @@ export interface Release {
 
 export const CHANGELOG: readonly Release[] = [
   {
+    version: '1.245.1',
+    date: '2026-11-28',
+    title: 'The LED screen builder no longer slides sideways',
+    what: 'Building an LED screen on a phone, the whole window could be dragged sideways, with part of it off the edge of the screen. It happened where a part has more than one product to choose from, such as the motors, the processor or the power distro, and one of them has a long name: the drop-down grew as wide as the name and pushed the window wider than the phone. A long name is now cut short in the drop-down, with every name in full once it’s opened, and the window stays as wide as the screen.',
+    prs: [0],
+  },
+  {
     version: '1.245.0',
     date: '2026-11-27',
     title: 'Build an LED screen on a quote',

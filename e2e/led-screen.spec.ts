@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
+import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test'
 
 /**
  * The LED screen builder on a quote (ADR 0207), end to end: Add LED screen opens a sheet that asks how big, which panel and
@@ -58,6 +58,16 @@ test.beforeAll(async ({ request }) => {
     ...PRODUCTS.filter(([, , , cents]) => cents !== null).map(([key, , , dayCents]): [string, Record<string, unknown>] => ['price.product', { modelId: `${key}-${run}`, dayCents }]),
   ])
 })
+
+/** How far a sheet scrolls sideways, and whatever in it reaches past its own right edge: nothing should, at any width. */
+const runsOff = (sheet: Locator) =>
+  sheet.evaluate((d) => {
+    const edge = d.getBoundingClientRect().left + d.clientLeft + d.clientWidth
+    return {
+      sideways: d.scrollWidth - d.clientWidth,
+      past: [...d.querySelectorAll<HTMLElement>('*')].filter((el) => el.getClientRects().length > 0 && el.getBoundingClientRect().right > edge + 1).map((el) => el.className || el.tagName),
+    }
+  })
 
 /** A job two days long with an empty draft quote, opened on its Quote tab. */
 async function quoteFor(request: APIRequestContext, page: Page, key: string) {
@@ -306,11 +316,7 @@ test('on a phone the builder is the whole screen, keeps what was typed when shut
   // and Add to quote is still in reach.
   await page.setViewportSize({ width: 320, height: 640 })
   await expect.poll(async () => Math.round((await sheet.boundingBox())!.width)).toBe(320)
-  const wide = () =>
-    sheet.evaluate((d) => ({
-      sideways: d.scrollWidth - d.clientWidth,
-      past: [...d.querySelectorAll<HTMLElement>('*')].filter((el) => el.getClientRects().length > 0 && el.getBoundingClientRect().right > innerWidth + 1).map((el) => el.className || el.tagName),
-    }))
+  const wide = () => runsOff(sheet)
   expect(await wide()).toEqual({ sideways: 0, past: [] })
   await sheet.evaluate((d) => d.scrollTo(0, 0))
   expect(await wide()).toEqual({ sideways: 0, past: [] })
@@ -372,4 +378,54 @@ test('a panel’s size is on its product page, where it can be put right', async
   await page.goto(`/#stock/product/truss2-${run}`)
   await expect(page.getByRole('region', { name: 'Details' })).toContainText('Rigging')
   await expect(page.getByRole('region', { name: 'Details' }).locator('.panel-fact')).toHaveCount(0)
+})
+
+/**
+ * A part the stock list has more than one product for offers them in a drop-down, and a drop-down is as wide as its longest
+ * name unless what holds it says otherwise. With the kit named as a hire company names it ("Santasom 18way socapex video
+ * distro"), that made the whole sheet scroll sideways on a phone. Last in the file, so its products change nothing above.
+ */
+test('a part with long-named products to choose from never makes the sheet scroll sideways', async ({ browser, request }) => {
+  const LONG: [key: string, name: string, more: Record<string, unknown>, dayCents: number][] = [
+    ['distro2', 'Santasom 18way socapex video distro', { department: 'power', category: 'Power' }, 4_000],
+    ['processor2', 'Nova star pro HD video processor', { department: 'video', category: 'Video equipment' }, 10_000],
+  ]
+  await push(request, 'long-stock', [
+    ...LONG.map(([key, name, more]): [string, Record<string, unknown>] => ['model.create', { id: `${key}-${run}`, name: named(name), tracking: 'bulk', isCase: false, valueCents: null, notes: '', ...more }]),
+    ...LONG.map(([key]): [string, Record<string, unknown>] => ['stock.set', { modelId: `${key}-${run}`, placeId: `bay-${run}`, caseId: null, qty: 2 }]),
+    ...LONG.map(([key, , , dayCents]): [string, Record<string, unknown>] => ['price.product', { modelId: `${key}-${run}`, dayCents }]),
+  ])
+  const page = await (await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: shots ? 2 : 1, hasTouch: true, isMobile: true })).newPage()
+  const draft = await quoteFor(request, page, 'long')
+  await draft.getByRole('button', { name: 'Add LED screen' }).click()
+  const sheet = page.getByRole('dialog', { name: 'Add an LED screen' })
+  const form = sheet.getByRole('form', { name: 'Add an LED screen' })
+  await form.getByLabel('Width, m', { exact: true }).fill('6')
+  await form.getByLabel('Height, m', { exact: true }).fill('3')
+  await form.getByRole('radio', { name: named('Absen NT 3.9') }).check()
+  await form.getByRole('radio', { name: 'Hung' }).check()
+  // Three parts have a choice to make, each in a drop-down that holds a long name.
+  const takes = form.getByRole('region', { name: 'What it takes' })
+  const picks = [takes.getByRole('combobox', { name: 'Motors: which' }), takes.getByRole('combobox', { name: 'Processor: which' }), takes.getByRole('combobox', { name: 'Power distro: which' })]
+  for (const pick of picks) await expect(pick).toBeVisible()
+  await expect(picks[2]!.getByRole('option', { name: named('Santasom 18way socapex video distro') })).toHaveCount(1)
+  await expect(picks[1]!.getByRole('option', { name: named('Nova star pro HD video processor') })).toHaveCount(1)
+
+  // From the narrowest phone to a desk, where the kit's column is narrow again beside the questions: the sheet never scrolls sideways,
+  // nothing in it reaches past its edge, and each drop-down is cut to its row and still wide enough to press and read.
+  for (const [width, height] of [[320, 640], [360, 740], [390, 844], [430, 932], [600, 900], [768, 1024], [1000, 800], [1100, 800], [1440, 900]] as const) {
+    await page.setViewportSize({ width, height })
+    await expect.poll(async () => Math.round((await sheet.boundingBox())!.x + (await sheet.boundingBox())!.width)).toBe(width)
+    await takes.scrollIntoViewIfNeeded()
+    expect({ width, ...(await runsOff(sheet)) }).toEqual({ width, sideways: 0, past: [] })
+    for (const pick of picks) {
+      const [box, row] = [(await pick.boundingBox())!, (await pick.locator('xpath=ancestor::div[1]').boundingBox())!]
+      expect(box.x + box.width).toBeLessThanOrEqual(row.x + row.width + 1)
+      expect(box.width).toBeGreaterThanOrEqual(150)
+    }
+    if (shots && (width === 320 || width === 390)) {
+      await picks[2]!.scrollIntoViewIfNeeded()
+      await shot(page, `builder-phone-${width}-long-names`)
+    }
+  }
 })
