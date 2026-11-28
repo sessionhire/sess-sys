@@ -1351,6 +1351,10 @@ dialog.screen-sheet[open] { display: flex; flex-direction: column; }
 /* The questions, then what they come to, then the foot at the sheet's bottom edge however little is above it. */
 .screen-builder { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto 1fr; row-gap: var(--section); min-width: 0; }
 .screen-asks { display: grid; gap: var(--section); align-content: start; min-width: 0; }
+/* Every stack in the builder is one column, and never wider than the sheet. A grid's own column is otherwise as wide as the widest
+   thing in it that can't shrink, and a drop-down doesn't shrink below its longest option: a part with a long-named product to choose
+   from (a power distro, a processor, a motor) made the whole sheet scroll sideways on a phone. Here the drop-down is cut short instead. */
+.screen-asks, dialog.screen-sheet .screen-ask, .screen-field, .screen-panel-facts, .screen-answer, .screen-how, .screen-parts, .screen-part-what, .screen-changes, .screen-foot { grid-template-columns: minmax(0, 1fr); }
 /* Each question is a part of the form with a head of its own: its name in the ink, read before the fields under it. */
 dialog.screen-sheet .screen-ask { display: grid; gap: var(--ds-space-2); min-width: 0; }
 dialog.screen-sheet .screen-ask > legend { margin-bottom: var(--ds-space-2); font-size: var(--text-small); font-weight: 700; color: var(--ink); }
